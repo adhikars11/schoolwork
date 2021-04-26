@@ -1,0 +1,95 @@
+library(shiny)
+library(shinythemes)
+library(genius)
+library(wordcloud)
+library(tidytext)
+library(tidyverse)
+library(viridis)
+library(ggplot2)
+joni_albums <- data.frame(artist = "Joni Mitchell",
+                          album = c("Blue", "Clouds","Hejira",
+                                    "Shine","Ladies of the Canyon",
+                                    "For the Roses", "Both Sides Now","Song to a Seagull",
+                                    "Court and Spark","The Hissing of Summer Lawns",
+                                    "Wild Things Run Fast","Mingus","Dog Eat Dog",
+                                    "Chalk Mark in a Rain Storm","Night Ride Home",
+                                    "Taming the Tiger","Travelogue","Turbulent Indigo"))
+joni <- joni_albums %>%
+  add_genius(artist, album) %>%
+  mutate(album = factor(album), album = fct_inorder(album))
+save(joni, file = "joni.Rdata")
+load("joni.Rdata")
+nrc <- get_sentiments("nrc")
+# User interface
+ui <- fluidPage(theme=shinytheme("superhero"),
+  titlePanel("Big hearts to  Joni Mitchell!"),
+  sidebarLayout(
+    sidebarPanel(
+      tags$img(src = "https://cdn.vox-cdn.com/thumbor/SgwAmxfjFF4KNNxKvVnBvAt14hA=/0x0:3000x2000/3320x1868/filters:focal(1260x760:1740x1240):format(webp)/cdn.vox-cdn.com/uploads/chorus_image/image/57163465/JoniMitchellLegacy_Getty_Ringer.0.jpg",
+               width = "250px", align="center", height = "150px"),
+      selectInput("selection", "Choose an album:",
+                  choices = unique(joni$album)),
+      sliderInput("freq",
+                  "Minimum Frequency:",
+                  min = 1,  max = 10, value = 3),
+      sliderInput("max",
+                  "Maximum Number of Words:",
+                  min = 1,  max = 50,  value = 20),
+      checkboxGroupInput("variable", "Select albums to get their sentiment analysis:",
+                         choices = unique(joni$album),
+                         selected = "Blue")
+    ),
+    # Show Word Cloud
+    mainPanel(
+      plotOutput("plot"),
+      tags$h4("Sentiment Analysis of the Selected Albums:"),
+      plotOutput("plot1"),
+      p("This app is dedicated to Joni Mitchell. You can find out what words she uses the most 
+in each of her albums by choosing an album and looking at the wordcloud. You can also adjust the minimum
+frequency and the number of words in the wordcloud. You can also select one or more 
+of her albumns and look at the bar chart that compares various sentiments in the selected album(s)."),
+      p("Album Source:",
+        tags$a(href="https://cran.r-project.org/web/packages/genius/genius.pdf",
+               "R Package 'genius'"))
+    )
+  )
+)
+# Server function
+server <-   function(input, output, session){
+  joni_reactive <- reactive({
+    joni %>%
+      dplyr::filter(album == input$selection) %>%
+      unnest_tokens(output = word, input = lyric,
+                    token = "words") %>%
+      anti_join(stop_words, by = "word") %>%
+      count(word, sort = TRUE) %>%
+      filter(n >= input$freq)
+  })
+    sentiment_reactive <- reactive({
+       joni %>%
+        dplyr::filter(album == input$variable) %>%
+        unnest_tokens(output = word, input = lyric,
+                      token = "words") %>%
+        anti_join(stop_words, by = "word") %>%
+        count(album, word, sort = TRUE) %>%
+        bind_tf_idf(word, album, n) %>%
+        arrange(desc(tf_idf))  %>%
+        inner_join(nrc, by = "word") %>%
+        group_by(album, sentiment) %>%
+        summarize(n = sum(n)) %>%
+        mutate(prop = n/sum(n))
+  })
+  output$plot <- renderPlot({
+    joni_reactive() %>%
+      with(wordcloud(word, n, scale=c(4,.25),
+                     min.freq = input$freq, max.words = input$max,
+                     colors=brewer.pal(8, "Dark2")))
+  })
+  output$plot1 <- renderPlot({
+ sentiment_reactive() %>%
+      ggplot(aes(fill = album, y = prop, x  = sentiment)) +
+      geom_col(position = "dodge") + coord_flip() + theme_minimal()
+  })
+}
+# Creates app
+shinyApp(ui = ui, server = server)

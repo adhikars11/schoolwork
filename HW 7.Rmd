@@ -1,0 +1,211 @@
+---
+title: "MATH 392 Problem Set 7"
+output: 
+  pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", 
+                      message = FALSE, warning = FALSE)
+library(tidyverse)
+library(knitr)
+library(here)
+```
+
+## Exercises from the book
+
+**11.1**: 4
+For $i=1,\cdots,n$, let $y_i=\beta_0+\beta_1x_i$. From equation 11.1.1,  
+$\hat\beta_1 = \frac{\sum_{i=1}^n(y_i-\bar{y})(x_i-\bar{x})}{\sum_{i=1}^n (x_i-\bar{x})^2}$ and $\hat\beta_0 = \bar{y} - \hat\beta_1\bar{x}$. This means, $\hat{y_i}=\hat{\beta_0}+\hat{\beta_1}x_i=(\bar{y} - \hat\beta_1\bar{x})+\hat{\beta_1}x_i$. If so,
+\begin{align*}
+\sum_{i=1}^n (y_i-\hat{y_i}) &= \sum_{i=1}^n (y_i) - \sum_{i=1}^n \bar{y} - \hat\beta_1\bar{x} +\hat{\beta_1}x_i \\
+&= n\bar{y}-n\bar{y}+n\hat\beta_1\bar{x}-\hat{\beta_1} \sum_{i=1}^n x_i\\
+&= n\bar{y}-n\bar{y}+n\hat\beta_1\bar{x}-\hat{\beta_1}n\bar{x} \\
+&= 0
+\end{align*}
+
+And,
+\begin{align*}
+\sum_{i=1}^n x_i(y_i-\hat{y_i}) &= \sum_{i=1}^n x_iy_i - \sum_{i=1}^n x_i(\bar{y} - \hat\beta_1\bar{x} +\hat{\beta_1}x_i) \\
+&= \sum_{i=1}^n x_iy_i - \bar{y} \sum_{i=1}^n x_i+\hat\beta_1\bar{x}.\sum_{i=1}^n x_i-\hat\beta_1\sum_{i=1}^n x_i^2 \\
+&= \sum_{i=1}^n x_iy_i - n\bar{xy}-\hat\beta_1\sum_{i=1}^n x_i^2 -n\bar{x}^2
+\\
+&= \sum_{i=1}^n (x_i-\bar{x})(y_i-\bar{y}) -  \frac{\sum_{i=1}^n(y_i-\bar{y})(x_i-\bar{x})}{\sum_{i=1}^n (x_i-\bar{x})^2}\cdot \sum_{i=1}^n (x_i-\bar{x})^2 \\
+&= \sum_{i=1}^n (x_i-\bar{x})(y_i-\bar{y}) - \sum_{i=1}^n (x_i-\bar{x})(y_i-\bar{y}) \\
+&= 0
+\end{align*} 
+
+
+**11.2** 
+We need to show that E$(\hat\beta_1) = \beta_1$. We showed in class that $\hat\beta_1 = \frac{\sum_{i=1}^n(x_i-\bar{x})Y_i}{ss_x}$, where $ss_x=\sum_{i=1}^n (x_i-\bar{x})^2$=$\sum_{i=1}^n x_i^2-n\bar{x}^2$. Also, $E(Y_i)=\beta_0+\beta_1x_i$. Using the linearity of expectation, we get, 
+\begin{align*}
+E(\hat\beta_1)&=E\left(\frac{\sum_{i=1}^n(x_i-\bar{x})Y_i}{ss_x}\right) \\
+&= \frac{\sum_{i=1}^n(x_i-\bar{x})E(Y_i)}{ss_x} \\
+&= \frac{\sum_{i=1}^n(x_i-\bar{x})E(\beta_0+\beta_1x_i)}{ss_x} \\
+&= \frac{\beta_0\sum_{i=1}^n(x_i-\bar{x})+\beta_1\sum_{i=1}^nx_i(x_i-\bar{x})}{ss_x}\\
+\textbf{Since} \sum_{i=1}^n(x_i-\bar{x})=0,
+&= \frac{\beta_1\sum_{i=1}^nx_i(x_i-\bar{x})}{ss_x} \\
+&= \frac{\beta_1}{ss_x}\left(\sum_{i=1}^nx_i^2-\bar{x}\sum_{i=1}^nx_i\right) \\
+&= \frac{\beta_1}{ss_x}\left(\sum_{i=1}^nx_i^2-n\bar{x}^2\right) \\
+&= \frac{\beta_1}{ss_x}\left(ss_x\right) \\
+&= \beta_1, \textbf{which is what we wanted to show.}
+\end{align*}
+
+
+**11.3**
+We know $\hat\beta_0 = \overline{Y} - \hat\beta_1\overline{x}$. So using the linearity of expectation,
+\begin{align*}
+E(\hat\beta_0) &= E\left(\overline{Y} - \hat\beta_1\overline{x}\right) \\
+&= E(\overline{Y})-E(\hat\beta_1\overline{x}) \\
+&= E(\overline{Y})-E(\hat\beta_1)\overline{x} \\
+&= \beta_0+\beta_1\overline{x}-\beta_1\overline{x} \\
+&= \beta_0, \textbf{which is what we wanted to show.}
+\end{align*}
+
+**11.4**  
+In class we showed, Var($\hat\beta_1$)=$\frac{\sigma^2}{ss_x}$. We know, $\hat\beta_0 = \overline{Y} - \hat\beta_1\overline{x}$. So,
+\begin{align*}
+Var(\hat\beta_0) &= Var\left(\overline{Y} - \hat\beta_1\overline{x}\right)\\
+&= Var(\overline{Y})-Var(\hat\beta_1\overline{x})\\
+&= Var(\overline{Y})-Var(\hat\beta_1)\overline{x}^2\\
+&= \frac{1}{n^2}\sum Var(Y_i)-\frac{\sigma^2}{ss_x}\cdot\overline{x}\\
+&= \frac{1}{n}-\frac{\sigma^2}{ss_x}\cdot\overline{x}^2\\
+&= \sigma^2\left(\frac{1}{n}+\frac{\overline{x}^2}{s_x^2}\right), \textbf{which is what we wanted to show.}
+\end{align*}
+
+**11.5**
+\begin{align*}
+Cov(\hat\beta_0, \hat\beta_1) &= Cov(\overline{Y} - \hat\beta_1\overline{x},\hat\beta_1)\\
+&=Cov(\overline{Y},\hat\beta_1)-Cov(\hat\beta_1\overline{x},\hat\beta_1) \\
+&= 0-Cov(\hat\beta_1\overline{x},\hat\beta_1) \textbf{[because $\hat\beta_1, \overline{Y}$ are independent, so $Cov(\overline{Y},\hat\beta_1)=0$]}\\
+&= -Cov(\hat\beta_1\overline{x},\hat\beta_1)\\
+&= -\overline{x}Cov(\hat\beta_1,\hat\beta_1)\\
+&=-\overline{x}\cdot Var(\hat\beta_1)\\
+&=\frac{-\overline{x}\sigma^2}{s_x^2}, \textbf{which is what we wanted to show.} 
+\end{align*}
+
+## Additional Exercises
+
+**1.** The given dataset:
+```{r}
+set.seed(32)
+n <- 10
+x <- rnorm(n)
+y <- -1 + 1.3 * x + rnorm(n, .3)
+df <- data.frame(x, y)
+```
+
+We can find the least squares regression line by running `lm()` (which uses the normal equations), and extract the coefficient estimates.
+
+```{r}
+m1 <- lm(y ~ x, data = df)
+coef(m1)
+```
+
+A more general approach to finding the estimates that optimize a loss function is to use a numerical optimization technique. Here we use `optim()` to minimize the RSS. By default this function uses the [Nelder-Mead algorithm](https://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method)), but you can also toggle to another algorithm such as [BFGS](https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm) or select an entirely different optimization function/package.
+
+```{r}
+RSS <- function(par, x, y) {
+  beta_0 <- par[1]
+  beta_1 <- par[2]
+  sum((y - (beta_0 + beta_1 * x))^2)
+}
+opt <- optim(par = c(0, 0), fn = RSS, x = x, y = y)
+```
+
+The `par` argument is the set of values of the two parameters that you want to initialize the algorithm at. You can try several different values and see if the final estimates agree. The final estimates are found in the `opt` object.
+
+```{r}
+opt$par
+```
+
+Which agree very closely with the analytical solutions from the normal equations.
+
+**a.** Using numerical optimization, the estimates that minimize two additional loss functions:
+**a)** the absolute deviation in the `y`
+```{r}
+AD <- function(par, x, y) {
+  beta_0 <- par[1]
+  beta_1 <- par[2]
+  sum(abs(y - (beta_0 + beta_1 * x)))
+}
+opt1 <- optim(par = c(0, 0), fn = AD, x = x, y = y)
+opt1[1]
+```
+**b)** the squared deviation in the x.
+```{r}
+SDX <- function(par, x, y) {
+  beta_0 <- par[1]
+  beta_1 <- par[2]
+  sum((x - (y/beta_1 - beta_0/beta_1))^2)
+}
+opt2 <- optim(par = c(0, 1), fn = SDX, x = x, y = y)
+opt2[1]
+```
+
+**b.**
+```{r}
+ggplot(df, aes(x=x, y=y))+
+  geom_point() + 
+  stat_function(fun = function(x){
+    y=-0.5680885+1.7880755*x
+  }, aes(colour = "Minimizes Squared Deviation in x"))+
+  stat_function(fun = function(x){
+    y=-0.5811102+1.2176761*x
+  }, aes(colour = "Minimizes absolute deviation in y")) +
+  stat_function(fun = function(x){
+    y=-0.4488259+1.2495164*x
+  },aes(colour = "Minimizes the RSS")) +
+   scale_colour_manual("Labels", values = c("red", "blue", "orange"))
+```
+
+
+**c.**
+```{r}
+predict_int <- predict(m1, interval="prediction") 
+conf_int <- predict(m1, interval="confidence")
+#Prediction Interval
+new_df <- cbind(df,predict_int, conf_int)
+colnames(new_df) <- make.unique(names(new_df))
+ggplot(new_df, aes(x=x, y=y))+
+  geom_point() +
+    geom_line(aes(y=lwr), color = "red", linetype = "dashed")+
+    geom_line(aes(y=upr), color = "red", linetype = "dashed")+
+    geom_line(aes(y=lwr.1), color = "blue", linetype = "dashed")+
+    geom_line(aes(y=upr.1), color = "blue", linetype = "dashed")+
+  geom_smooth(method="lm") 
+#95% Confidence Interval
+```
+
+**2.** 
+```{r}
+# install.packages("resampledata")
+library(resampledata)
+data(corrExerciseB)
+```
+
+**a.**
+```{r}
+corr_1 <- corrExerciseB %>%
+  group_by(Z) %>%
+  summarize(X = mean(X),Y = mean(Y))
+ggplot(corrExerciseB, aes(x=X, y=Y, color=Z))+
+  geom_point() +
+ geom_point(data = corr_1, size=5, shape="square")+
+  theme_light()
+```
+
+**b.**
+```{r}
+corr1 <- cor(x=corr_1$X, y=corr_1$Y)
+corr2 <- cor(x=corrExerciseB$X, y=corrExerciseB$Y)
+corr1
+corr2
+```
+We see that the correlation at the group level is significantly greater than that at the individual level. This will be the case if the aggregation of data results in the loss or concealment of certain details of information about individuals. There might be other reasons like statistical artifacts, elimination of error variances, biased estimates behind this difference. This is usually a more common feature of aggregated data in the real world.
+
+
+
+
+**c.** 
+In a setting such as this, commiting an ecological fallacy would happen if inferences at individual level is made based on the correlation at the group level and in this case the correlation at group level would be an overestimation of correlation at individual level. For causal inference, individual data are required to account for population heterogeneity and confounding bias. So in order to determine whether ecological hypotheses generated by group-level analyses are true for individuals, individual-level data must be collected.

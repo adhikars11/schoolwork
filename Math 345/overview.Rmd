@@ -1,0 +1,153 @@
+---
+title: "Package Overview"
+author: "Jonathan Kadish"
+date: "3/22/2021"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Spatial Object packages
+The basics are sf and sp
+# sp
+sp implements our basic spatial data types using spatial "classes"
+```{r}
+library(pacman)
+p_load(sp)
+getClass("Spatial")
+```
+# Loading data into an sp object
+We can load any data with coordinates into the sp package. These can be points, lines, of polgons.
+```{r}
+coords <- rbind(c(1.5, 2), c(2.5, 2), c(0.5, 0.5), c(1, 0.25), c(1.5, 
+    0), c(2, 0), c(2.5, 0), c(3, 0.25), c(3.5, 0.5))
+pts <- SpatialPoints(coords)
+plot(pts)
+```
+Note it is easy to use the plot function with a spatial classes, but there is also a ggspatial package to make them graphable with ggplot. However, I could not get this to work.
+```{r, eval = FALSE}
+p_load(ggspatial, ggplot2)
+ggplot() +
+  geom_spatial_point(data = pts)
+```
+# CRS
+Remember, to analyze spatial data we need to specify the coordinate reference system.
+```{r}
+is.projected(pts)
+crs.geo <- CRS("+init=EPSG:32633")  # UTM 33N
+proj4string(pts) <- crs.geo  # define projection system of our data
+is.projected(pts)
+```
+# Add data
+We add attributes to a spatial class to make it a spatial points data frame
+```{r}
+df <- data.frame(attr1 = c("a", "b", "z", "d", "e", "q", "w", "r", "z"), attr2 = c(101:109))
+df
+spdf <- SpatialPointsDataFrame(pts, df)
+summary(spdf)
+```
+# sf
+sf (simple feature) is newer than sp and is growing in popularity, in part because it integrates nicely with the tidyverse suite. It's easy to transfer data from one to the other
+```{r}
+p_load(sf)
+ptssf <- st_as_sf(pts)
+class(ptssf)
+st_geometry(ptssf)
+#can still use the plot function
+plot(ptssf)
+#can also use ggplot
+ggplot(ptssf) +
+  geom_sf()
+```
+Why not always use sf? Some packages work with sf, some with sp. But we can convert from sf to sp object easily as well. Many packages now work with both.My recommendation: use sf except when you have to use sp.
+```{r}
+#convert sf back to sp
+pts2 <- as(ptssf, "Spatial")
+```
+# Reading in shapefile
+If you download a shapefile and want to read it in directly, use the raster package (shapefile) [relies on rgdal package], the readOGR (rgdal package) [more flexible], or st_read (sf package) [to read straight to a simple feature object].
+# Spatial autocorrelation
+One package that uses the sp data structure is the one we used for neighbors and spatial autocorrelation, spdep.
+```{r}
+us_states <- us_states
+class(us_states)
+p_load(spdep)
+# spdep takes either sp or sf objects
+nn <- poly2nb(us_states)
+nn.list <- nb2listw(nn)
+#one benefit of sp: plotting a neighbor object is very easy
+us_sp <- as(us_states, "Spatial")
+plot(us_sp)
+plot(nn, coordinates(us_sp), add = TRUE)
+```
+For spatial autocorrelation, we used moran.test. We use the list version of our neighbor object
+```{r}
+# analytical version
+moran.test(us_states$total_pop_10, listw = nn.list)
+# monte carlo version
+mc <- moran.mc(us_states$total_pop_10, listw = nn.list, nsim = 99)
+mc
+plot(mc)
+```
+# interpolation
+We used a few different packages for interpolation. Nearest neighbor interpolatuion using the dismo package (voronoi command), gstat package (inverse distance weighting).
+```{r}
+p_load(dismo)
+vsp <- voronoi(pts)
+plot(vsp)
+#note, this package only works with sp object, or a two column matrix of coordinates
+vsp <- voronoi(ptssf)
+```
+```{r}
+p_load(gstat)
+#create gstat object
+gs <- gstat(formula = attr2 ~ 1, data = spdf)
+#to interpolate to a field, we create a raster then use the raster package's interpolate function.
+r <- raster(spdf, res = .1)
+ridw <- interpolate(r, gs)
+plot(ridw)
+```
+# Point processes
+Raster package was also useful for quadrats
+```{r}
+quad <- rasterize(coordinates(pts),fun = 'count', r)
+plot(quad)
+```
+For point processes, we use the spatstat package. This package only works with sp objects
+```{r}
+library(spatstat)
+#create a window
+coordinates(pts)
+#will automatically create a spatstat object from an sf object using as.ppp
+pts.stat <- as.ppp(ptssf)
+#from an sp object, you need to create the owin
+#can create it manually or prom a polygon object as we did in class
+pts.owin <- owin(c(0,4), c(0,4))
+coords <- coordinates(pts)
+pts.stat.sp <- ppp(x = coords[,1], y = coords[,2],window =  pts.owin)
+```
+With spatstat, it was easy to compute Kernel Density, F, G, K functions. Do that here:
+```{r}
+```
+Collapse
+
+
+
+
+
+Send a message to in-class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

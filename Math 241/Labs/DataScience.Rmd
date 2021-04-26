@@ -1,0 +1,269 @@
+---
+title: "Data Science"
+author: "Shisham Adhikari"
+date: "04/22/2020"
+output:
+  pdf_document:
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+# Put all necessary libraries here
+library(tidyverse)
+library(viridis)
+library(ggmap)
+library(rvest)
+```
+
+### Problem 1: Mapping PDX Crashes
+```{r}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+```
+
+a. Recreating the longitude vs. latitude graph:
+```{r, warning=FALSE, message=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+ggplot(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD)) +
+  geom_point(alpha = .9, 
+             size = .9, 
+             color = "purple") + 
+  labs(x = "Longitude",
+       y = "Latitude", 
+       title = "Crashes Across Portland Based on their Latitudinal and Longitudal Data") +
+  theme_classic()
+```
+
+b.A (static) raster map with the crashes mapped as points on top:
+```{r, warning=FALSE, message=FALSE}
+aleutian_box <- c(bottom = 45.45868, left = -122.6833, 
+                   top = 45.5265, right = -122.4800)
+aleutian <- get_stamenmap(aleutian_box, 
+                          maptype = "terrain-background", 
+                          zoom = 5)
+aleutian %>% 
+save(aleutian, file = "aleutian.RData")
+load("aleutian.RData")
+aleutian %>% 
+  ggmap() +
+  geom_point(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD),
+       alpha = .9, 
+             size = .9, 
+             color = "purple") +
+  theme_minimal()
+```
+
+c.  An interactive map of the crashes: 
+```{r, warning=FALSE, message=FALSE}
+library(leaflet)
+leaflet() %>%
+   setView(lng = -122.6308, lat = 45.4811,
+          zoom = 11) %>%     
+  addTiles() %>%
+  addCircleMarkers(lng = ~LONGTD_DD , lat = ~LAT_DD, 
+                   data = pdx_crash_2018, color="purple", fillOpacity = 0.9, radius=2) %>%
+  addMiniMap()
+```
+
+
+
+d.
+```{r, warning=FALSE, message=FALSE}
+pdx_crash_2018 <- pdx_crash_2018 %>%
+  mutate(CRASH_HR_NO= as.integer(CRASH_HR_NO)) %>%
+  mutate(day_time=factor(CRASH_HR_NO, levels=c(5:11, 12:15, 16:19, 20:23, 00:05, 99), 
+                         labels = c(rep("morning",7), rep("afternoon",4), rep("evening",4), rep("night",10), NA)))
+pal <- colorFactor(palette = c("blue", "orange","darkgreen","red","black"), domain = pdx_crash_2018$day_time)
+pdx_crash_2018 %>%
+  leaflet(options = leafletOptions(minZoom = 10, maxZoom = 15)) %>% 
+  addTiles() %>%
+  addCircles(lng = ~LONGTD_DD, lat = ~LAT_DD, 
+                  color=~pal(day_time)) %>%
+  addLegend("bottomright", pal=pal, values=~day_time, title = "Time of crash", opacity=1)
+```
+ Comments: From the plot, we see that crash locations vary by parts of the day but there is no strong trend. Most crashes are happening along highways or big streets (yellow, red lines in the plot) and also in the intersections. 
+
+
+e. Adding a pop-up to the interactive map that provides the exact address of the crash:
+```{r, warning=FALSE, message=FALSE}
+content <- paste("<b>", pdx_crash_2018$CNTY_NM, pdx_crash_2018$CITY_SECT_NM,
+                 "</b></br>", "Street of the crash:",
+                 pdx_crash_2018$ST_FULL_NM, "(", pdx_crash_2018$LAT_DD, ",", pdx_crash_2018$LONGTD_DD, ")")
+pdx_crash_2018 %>%
+  leaflet(options = leafletOptions(minZoom = 10, maxZoom = 15)) %>% 
+  addTiles() %>%
+  addCircles(lng = ~LONGTD_DD, lat = ~LAT_DD, 
+                  color=~pal(day_time), popup = content) %>%
+  addLegend("bottomright", pal=pal, values=~day_time, title = "Time of crash", opacity=1)
+```
+
+f. A leaflet graph displaying the different crash severities: 
+```{r, warning=FALSE, message=FALSE}
+fatal <-  pdx_crash_2018 %>%
+  filter(CRASH_SVRTY_SHORT_DESC == "FAT")
+injury <- pdx_crash_2018 %>%
+  filter(CRASH_SVRTY_SHORT_DESC == "INJ")
+property_damage <- pdx_crash_2018 %>%
+  filter(CRASH_SVRTY_SHORT_DESC == "PDO")
+
+  pdx_crash_2018 %>%
+  leaflet() %>%
+  addTiles() %>%
+      addCircleMarkers(lng = ~LONGTD_DD, lat = ~LAT_DD, 
+                   radius = 2,
+                   data = injury, color = "#b19cd9",
+                   group = "Injury") %>% 
+      addCircleMarkers(lng = ~LONGTD_DD, lat = ~LAT_DD, 
+                   radius = 2, 
+                   data = property_damage, color = "#ff0000",
+                   group = "Property Damage Only") %>%  
+  addCircleMarkers(lng = ~LONGTD_DD, lat = ~LAT_DD, 
+                   radius = 2, 
+                   data = fatal, color = "Blue",
+                   group = "Fatal") %>%
+  # Layers control
+      addLayersControl(
+        overlayGroups = c("Fatal", "Injury","Property Damage Only"),
+        options = layersControlOptions(collapsed = FALSE))
+```
+We see that most of the crashes are with injuries and is common across all locations. We see the fatal crashes are mostly on eastern regions and on big highways and streets (red and orange lines in the map). The crashes with only property destroyed are fewer in number but are spread out. In the map, they are along the highway near downtown or other big streets and highway (205) which are red and orage lines in the plot. 
+
+g.
+```{r}
+aleutian %>% 
+  ggmap() +
+  geom_density2d(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD),
+             color = "purple") + 
+  theme_minimal()
+```
+This map tells us that the car crashes in the SE are mostly centered around the highway on the way to downtown (upper, left) and the highway, probably 205 (top, right). There are also more crashes around the centeral SE region. This story is similar to the map using `geom_point()` but the crashes clustered around the center and top-right is not as visible in the map with geom_point(). The crashes centered near downtown (top-left) is pretty visible in both the plots. 
+ 
+h. 
+```{r, warning=FALSE, message=FALSE}
+aleutian %>% 
+  ggmap() +
+  geom_density2d(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD),
+             color = "purple") +
+  theme_minimal()+facet_wrap(~day_time)
+```
+For all parts of day, the distribution on accidents does not vary as much. The crashes are still centered around the highway near donwntown (top, left) and still around the highway, probably 205 (top right) for afternoon and evening. Just like before, they all seem to have accidents around center too. 
+
+
+### Problem 2: Choropleth Maps
+```{r, eval = TRUE, warning=FALSE, message=FALSE}
+api_key <- "e20f7e545ee9474d9d353d401cc0e1d00d31deeb"
+```
+
+a. Grabbing data on the median gross rent for Multnomah county:
+```{r, warning=FALSE, message=FALSE}
+library(tidycensus)
+library(tigris)
+county <- get_acs(geography = "county subdivision", 
+                  variables = "B25064_001", 
+                  county = "multnomah", 
+                  state = "Oregon",
+                  geometry = TRUE, 
+                  key = api_key, 
+                  cache_table = TRUE)
+tract <- get_acs(
+  geography = "tract",
+  variables = "B25064_001",
+  state = "OR",
+  county = "Multnomah",
+  geometry = TRUE,
+  key = api_key
+)
+block <- get_acs(
+  geography = "block group",
+  variables = "B25064_001",
+  state = "OR",
+  county = "Multnomah",
+  geometry = TRUE,
+  key = api_key
+)
+```
+
+b. Three choropleth maps of gross rent, one for each geography resolution:
+```{r, warning=FALSE, message=FALSE}
+ggplot(data = county, mapping = aes(geometry = geometry)) + 
+  geom_sf(aes(fill = estimate)) +
+  coord_sf() +
+  scale_fill_viridis_c() + theme_void()
+ggplot(data = tract, mapping = aes(geometry = geometry)) + 
+  geom_sf(aes(fill = estimate)) +
+  coord_sf() +
+  scale_fill_viridis_c() + theme_void()
+ggplot(data = block, mapping = aes(geometry = geometry)) + 
+  geom_sf(aes(fill = estimate)) +
+  coord_sf() +
+  scale_fill_viridis_c() + theme_void()
+```
+We see that the eastern side of the multomah county has the lowest median gross rent or no data in block group resolution. This is probably because not many people live there. We see in the first map that the western places have higher median gross rent than the rest. In the tract resolution, around Portland seems to have the highest median gross rent. Except for that, the median gross rent is pretty variable across the county regions.   
+Tract seems to be the most useful resolution for this variable because the county subdivision is pretty broad category and has just five divisions and a lot of data is missing (colored grey) in the block group resolution. 
+ 
+c. Making the tract map interactive:
+```{r, warning=FALSE, message=FALSE}
+tract %>%
+   leaflet(options = leafletOptions(minZoom = 10, maxZoom = 15)) %>%
+  addTiles() %>%
+  addPolygons(popup = ~NAME, color = ~pal(estimate),
+              stroke = FALSE, fillOpacity = 0.9)
+```
+
+### Problem 3: Take a Static Plot and Animate It!
+a. Recreating gaduation rate over year graph:
+```{r, warning=FALSE, message=FALSE}
+grad <- read_html("https://www.reed.edu/ir/gradrateshist.html")%>%
+  html_nodes("table") %>%
+html_table(fill = TRUE)
+grad1 <- grad[[1]] 
+colnames(grad1) <- c("Entering class year", "Number in cohort", "4", "5", "6")
+grad1 <- grad1 %>% 
+  filter(row_number() >1)
+grad1 <- pivot_longer(grad1, cols = c("4", "5", "6"), 
+                                names_to = "Years to graduation", 
+                                values_to = "Graduation rate") %>%
+  mutate(Entering_class_year = as.integer(`Entering class year`), 
+         Cohort_size = as.integer(`Number in cohort`), 
+         Years_to_graduation = as.integer(`Years to graduation`), 
+         Graduation_rate = parse_number(`Graduation rate`)) %>%
+  select(Entering_class_year, Cohort_size, Years_to_graduation, Graduation_rate)
+plot <- grad1 %>% ggplot(aes(x = Entering_class_year,
+         y = Graduation_rate, 
+        color = as.factor(Years_to_graduation))) + geom_line()
+plot
+```
+
+b. With animation:
+```{r, warning=FALSE, message=FALSE}
+library(gganimate)
+animate <- grad1 %>% ggplot(aes(x = Entering_class_year,
+         y = Graduation_rate, 
+        color = as.factor(Years_to_graduation))) + geom_line(size=2)+geom_point(size=3) +
+  transition_reveal(Entering_class_year)+
+  labs(title = "The Year is {round(frame_along, 0)}.")
+animate
+```
+
+c. 
+The animation improves the plot because:
+* It makes the plot more engaging for viewers.
+* It accentuates the story that the graduation rate is going up over years for all years to graduation.
+The animation worsens the plot because:
+* It requires a higher level of attention from viewers. 
+* It might obscure the story, especially for viewers without statistic background. 
+
+
+

@@ -1,0 +1,194 @@
+---
+title: "Math 392 HW 4"
+author: "Shisham Adhikari"
+date: "2/21/2020"
+header-includes:
+   - \usepackage{mathtools,amsmath,amsthm,amssymb, graphicx, physics, multicol}
+   -  \DeclareUnicodeCharacter{2212}{-}
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Exercise: 8.1.1
+Given: $X_1,\cdots,X_n$ is taken from the uniform distribution on the interval $[0, \theta]$ and that $\theta$ is unknown. We need to find n so that 
+\vspace{-1em}
+\begin{align*}
+Pr(|max(X_1,\cdots,X_n) − \theta|\leq 0.1 \theta) \geq 0.95 \\
+Pr(\theta-max(X_1,\cdots,X_n)\leq 0.1 \theta) \geq 0.95 \\
+\end{align*}
+\vspace{-2em}
+Because for the uniform distribution, MLE is $\hat{\theta}=max(X_1,\cdots,X_n)$, so $\theta$ is greater than any value of $X_1,\cdots,X_n$ making $\theta-max(X_1,\cdots,X_n)$ always positive and we can drop the absolute value sign.
+\vspace{-1em}
+\begin{align*}
+Pr(0.9\theta\leq max(X_1,\cdots,X_n)) \geq 0.95\\
+1-Pr(0.9\theta\geq max(X_1,\cdots,X_n)) \geq 0.95\\
+1-\frac{0.9\theta}{\theta} \geq 0.95\\
+\end{align*}
+\vspace{-2em}
+Using the probability density function of the maximum of samples from a uniform distribution.
+\vspace{-1em}
+\begin{align*}
+1-(0.9)^n &\geq 0.95\\
+0.05 &\geq (0.9)^n\\
+ln(0.05) &\geq n ln(0.9) \ \ \textrm{Taking log on both sides}\\
+\frac{ln(0.05)}{ln(0.9)} &\geq n\\
+28.43 &\geq n \\
+\Rightarrow 29 &\geq n \\
+\end{align*}
+\vspace{-2em}
+So, a random sample must be at least with 29 observations. 
+
+##Exercise: 8.1.3
+Given:a random sample is to be taken from the normal distribution with unknown mean $\theta$ and standard deviation 2. We need to find how large a random sample must be taken in order that $E_\theta (|\bar{X_n} − \theta|) \leq 0.1$ for every possible value of $\theta$. First of all, let's change the given normal distribution to a standard normal distribution. Here based on the information we have, $Z= \frac{(|\bar{X_n} − \theta|)}{\frac{2}{\sqrt{n}}}$ has a standard normal distribution. If so,
+\vspace{-1em}
+\begin{align*}
+E_\theta (|\bar{X_n} − \theta|) &= \frac{2}{\sqrt{n}} E_\theta(|Z|) \\
+&= \frac{2}{\sqrt{n}} \int_{-\infty}^\infty |z| \frac{1}{\sqrt{2\pi}} e^{\frac{-z^2}{2}}dz \\
+&= \frac{2}{\sqrt{n}} \cdot 2 \cdot \int_0^\infty z \frac{1}{\sqrt{2\pi}} e^{\frac{-z^2}{2}}dz \\
+&= 2\sqrt{\frac{2}{n\pi}} \int_0^\infty ze^{\frac{-z^2}{2}}dz \\
+&= 2\sqrt{\frac{2}{n\pi}} \cdot 1\ \ \textrm{(Using Wolfram Alpha, the integration of $\int_0^\infty ze^{\frac{-z^2}{2}}dz=1)$}\\
+&= 2\sqrt{\frac{2}{n\pi}}
+\end{align*}
+We need to find, 
+\begin{align*}
+E_\theta (|\bar{X_n} − \theta|) = 2\sqrt{\frac{2}{n\pi}} &\leq 0.1 \\
+4 \cdot \frac{2}{n\pi} &\leq 0.01 \\
+\Rightarrow n &\geq 254.6
+\end{align*}
+Since n has to be an integer, the required value of n is at least 255. 
+
+## Exercise: 8.2.2
+The pdf of rv X with $\chi^2$ distribution and m degrees of freedom (m = 1, 2, $\cdots$) is given by f(x)=$\frac{x^{\frac{m}{2}-1}e^{\frac{-x}{2}}}{2^{\frac{m}{2}}\Gamma\left(\frac{m}{2}\right)}$ for x $>$ 0 and zero otherwise. We know that the mode is a value of x for which pdf is at maximum which we can find by setting derivative of the pdf equal to 0. To do that, taking log on both sides we get, 
+\begin{align*}
+\ln{f(x)}=\left(\frac{m}{2}-1\right)\ln{x}-\frac{x}{2}-\ln{2^{\frac{m}{2}}\Gamma\left(\frac{m}{2}\right)}
+\end{align*}
+Takind derivative of this function with respect to x and setting equal to zero, we get
+\begin{align*}
+\left(\frac{m}{2}-1\right)\frac{1}{x}-\frac{1}{2} &=0 \\
+2\left(\frac{m}{2}-1\right) &= x \\
+\Rightarrow x &= m-2
+\end{align*}
+Thus, the required mode of the $\chi^2$ distribution with m degrees of freedom (m = 1, 2, $\cdots$) is m-2.
+
+## Exercise: 8.2.3
+We need to sketch the p.d.f. of the $\chi^2$ distribution with m degrees of freedom for each of the following values of m. Locate the mean, the median, and the mode on each sketch. 
+
+(a)For m = 1
+```{r}
+library(tidyverse)
+mean <- 1
+mode <- 0
+q1 <- qchisq(0.5, df=1,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 1)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  ylab("") +
+  xlab("Chi-square, df = 1") + 
+  geom_vline(xintercept = q1, lty = 2) +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2)
+```
+For m = 1, mean = m = 1, median = 0.4549364, mode = m-2 = 0 (because <0 is not in the parameters space)
+
+(b)For m = 2
+```{r}
+library(tidyverse)
+mean <- 2
+mode <- 0
+q2 <- qchisq(0.5, df=2,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 2)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  ylab("") +
+  xlab("Chi-square, df = 2") + 
+  geom_vline(xintercept = q2, lty = 2) +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2)
+```
+For m = 2, mean = m = 2, median = 1.386294, mode = m-2 = 0 
+
+(c)For m = 3
+```{r}
+library(tidyverse)
+mean <- 3
+mode <- 1
+q3 <- qchisq(0.5, df=3,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 3)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  ylab("") +
+  xlab("Chi-square, df = 3") + 
+  geom_vline(xintercept = q3, lty = 2) +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2)
+```
+
+For m = 3, mean = m = 3, median = 2.365974, mode = m-2 = 1
+
+(a)For m = 4
+```{r}
+library(tidyverse)
+mean <- 4
+mode <- 2
+q4 <- qchisq(0.5, df=4,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 4)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  ylab("") +
+  xlab("Chi-square, df = 4") + 
+  geom_vline(xintercept = q4, lty = 2) +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2)
+```
+For m = 4, mean = m = 4, median = 3.356694, mode = m-2 = 2
+
+## Exercise: 8.2.4
+A point (X, Y ) is to be chosen at random in the xy-plane, where X and Y are independent random variables and each has the standard normal distribution. If a circle is drawn in the xy-plane with its center at the origin, we need to find the radius of the smallest circle that can be chosen in order for there to be probability 0.99 that the point (X, Y ) will lie inside the circle. First, we need to translate the given/required conditions into a equation.\\
+For a circle drawn in xy-plane, the radius is given by
+$r^2$=$X^2+Y^2$. Here, for any random variables X and Y in the xy-plane, $X^2$+$Y^2$ would be the sum of squares of iid random variables with standard normal distribution which would in fact result to a chi-square distribution $\chi^2$ with 1+1=2 degrees of freedom. So let's define it as Z=$X^2$+$Y^2$
+as a rv with a chi-squared distribution with 2 degrees of freedom. So ou required condition gives the equation:
+\begin{align*}
+Pr(X^2+Y^2 \leq r^2) &= 0.99 \\
+\Rightarrow Pr(Z \leq r^2) &= 0.99
+\end{align*}
+```{r}
+qchisq(0.99, df=2)
+```
+This implies $r^2 \geq 9.210$ and hence $r \geq \sqrt{9.210} = 3.034$. Thus, our r should be at least 3.034 units. 
+
+##Exercise: 8.2.13
+From Example 8.2.1, $\hat{\sigma_0^2}$ = $\frac{1}{n}\sum_{i=1}^n\left(X_i-\mu\right)^2$, where $X_1,\cdots,X_n$ form a random sample from the normal distribution with known mean $\mu$ and unknown variance $\sigma^2$. As told in Example 8.2.2, the random variables $Z_i$ = $(X_i-\mu)/\sigma$ for i=1,$\cdots$,n form a random sample from the standard normal
+distribution. It follows from Corollary 8.2.1 that the distribution of $\sum_{i=1}^n Z_i^2$ is the $\chi^2$ distribution with n degrees of freedom. It is easy to see that  $\sum_{i=1}^n Z_i^2$ is precisely the same as $\frac{n\hat{\sigma_0^2}}{\sigma^2}$, which appears in Example 8.2.1. So the distribution of $\frac{n\hat{\sigma_0^2}}{\sigma^2}$ is the  $\chi^2$ distribution with n degrees of freedom. We know from Definition 8.2.1 that $\chi^2$ distribution with n degrees of freedom is in fact the gamma distribution with parameters $\alpha=\frac{n}{2}$ and $\beta=\frac{1}{2}$. We also know the property that multiplying a gamma distribution with a constant is still a gamma distribution with the same first parameter but a different second parameter, aka second parameter is divided by the constant. Here, required $\hat{\sigma_0^2}$ is just a constant $\frac{\sigma^2}{n}$ times $\frac{n\hat{\sigma_0^2}}{\sigma^2}$. Hence, from $\frac{n\hat{\sigma_0^2}}{\sigma^2}$, the distribution of $\hat{\sigma_0^2}$ is also a gamma distribution with the same first parameter, $\alpha=\frac{n}{2}$ and a different second parameter, $\beta=\frac{1}{2} \cdot$ constant = $\frac{1}{2} \cdot \frac{\sigma^2}{n}$ = $\frac{n}{2\sigma^2}$.Thus, the distribution of $\hat{\sigma_0^2}$ in Examples 8.2.1 and 8.2.2 is the gamma distribution with parameters $\frac{n}{2}$ and $\frac{n}{2\sigma^2}$.
+
+##Exercise: 8.4.3 
+Given the five random variables $X_1,\cdots, X_5$ are
+i.i.d. and that each has the standard normal distribution. We need a constant c such that the random variable, let's define it as X = $\frac{c(X_1+X_2)}{(X_3^2+X_4^2+X_5^2)^\frac{1}{2}}$ will have a t distribution. We know that each $X_i$ are i.i.d. with the standard normal distribution. X is said to have a t distribution with m degrees of freedom if $X=\frac{Z}{(\frac{Y}{m})^\frac{1}{2}}$, where Z has the standard normal distribution and Y has the $\chi^2$ distribution with m degrees of freedom. \\
+For our X = $\frac{c(X_1+X_2)}{(X_3^2+X_4^2+X_5^2)^\frac{1}{2}}$, in the numerator is the sum of two standard normal distribution $~N(0,1)$ and hence the will have a distribution $N(0,2)$, call it $Z'$[we showed this in MATH 391 and we can show this by using MGFs].  Also, the denominator of X is a chisquare distribution from the theorem/proof from the class. So basically we have $\frac{Z'(0,2)}{Y^\frac{1}{2}}$ and we need to convert it to $\frac{Z}{(\frac{Y}{m})^\frac{1}{2}}$. Since there are three independent variables in the chi-square distribution, the degrees of freedom, m=3. For the numerator, from $Z'(0,2)$, we can get $Z=(\frac{(X_1+X_2-0)}{\sqrt{2}})$ i.e. $Z=(\frac{(X_1+X_2)}{\sqrt{2}})$ is a standard normal distribution. We have everything we need, so we need to solve for:
+\vspace{-1em}
+\begin{align*}
+\frac{c(X_1+X_2)}{(X_3^2+X_4^2+X_5^2)^\frac{1}{2}} &= \frac{\frac{(X_1+X_2)}{\sqrt{2}}}{\left(\frac{(X_3^2+X_4^2+X_5^2)}{3}\right)^\frac{1}{2}}\\
+\frac{c(X_1+X_2)}{(X_3^2+X_4^2+X_5^2)^\frac{1}{2}} &= \sqrt{\frac{3}{2}}\frac{(X_1+X_2)}{(X_3^2+X_4^2+X_5^2)^\frac{1}{2}}\\
+\Rightarrow c &= \sqrt{\frac{3}{2}}
+\end{align*}
+\vspace{-2em}
+Thus, required value of the constant is $\sqrt{\frac{3}{2}}$.
+

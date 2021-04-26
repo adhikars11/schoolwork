@@ -1,0 +1,377 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+----
+title: "Lab 2"
+author: "Shisham Adhikari"
+date: "2/12/2020"
+output: pdf_document
+---
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(viridis)
+library(ggthemes)
+library(lubridate)
+```
+
+Problem 1: 
+
+a. The geoms are dots/points.
+
+b. The variables are the average number of people infected by each sick person and the fatality rate scaled to their log values.
+
+c. The average transission numbers or the average number of people infected by each sick person is mapped on the X-scale of the geom and the log-scaled fatality rate is mapped on the y-scale represented by the hegiht of the geom. We see that the logarithmic scale is used for the fatality rate to focus on the percentage change.
+
+d. Cartesian coordinate system is used.
+
+e. The upward-facing arrow labeled "More deadly" and the right-facing arrow labeled "Spreads faster" further explains the story the geoms are telling. The x-label and y-label provide a valuable context about what the graph is about. The logarithmic scale and % units on the y-label makes it clear that the scale used is the log scale. The new coronovirus is labeled seperately in a shaded box which tells where the virus lies in terms of transmission and fatality rates. The note at the bottom furtehr clarifies the variables and what they do for the coronavirus.
+
+f. Things this graph do well are:
+- The geoms, variables, and mapping is super clear.
+- There is good context about the variables and geoms, also about the new coronavirus.
+- Through log scale, a wider range of data is displayed and also the rate of change of fatality rate can be easily deduced. 
+
+g. This graph could be improved by the following ways
+- Add more aesthethics to the geoms to add more context to the story.
+- The y-variable, aka fatality rate is log-scaled, so it makes it difficult to analyse the actual fatality of the diseases. Also, there are other technical difficulties of log-scale like zero cannot be plotted and negative values cannot be displayed on the same graph as positive values. This could be improved by usinf other scale. 
+
+
+Problem 2: Styling the code!
+```{r, message=FALSE, warning=FALSE}
+#Create a data frame and assign data values
+animals <- data.frame(weights = c(runif(3), NA), 
+                      y = c("cat","mouse","dog","rat"))
+
+#Statistics 
+median(animals$weights, TRUE);   # 0.2028016
+mean(animals$weights, 0, TRUE);  # 0.6245378
+var(animals$weights, NULL, TRUE) # 0.05890109
+
+#plot
+ggplot(animals, 
+       aes(y = weights,
+           x = y)) + 
+  labs(x = "Animals",
+       y = "Weights", 
+       title = "Animals and their weights") + 
+  theme(axis.title.x = element_text(color = "#393A67", 
+                                    vjust = -0.35), 
+        axis.title.y = element_text(color = "#393A67", 
+                                    vjust = 0.35)) + 
+  geom_bar(fill = "#393A67", 
+           stat = "identity") 
+```
+
+
+
+Problem 3: Recreating a graph
+
+a) Screenshot saved and the eval = FALSE changed to eval = TRUE.
+
+b)
+```{r, message=FALSE, warning=FALSE}
+# Load dataset from the folder
+app <- read_csv("approval_topline.csv")
+#Modify the data as required
+app1 <- app %>%
+  select(- president, 
+         -timestamp) %>%
+  filter(subgroup == "All polls") %>%
+  mutate(Date = mdy(modeldate))
+# Create a story label
+label_data <- data.frame(Date = ymd("2020-02-10"), 
+             approve_estimate = 43.79978,
+                        label = " 43.8% Approval")
+label_data1 <- data.frame(Date = ymd("2020-02-10"), 
+              approve_estimate = 51.83696,
+                         label = "51.8% Disapproval")
+ggplot(data = app1,  
+       aes(x = Date,
+           y = approve_estimate)) +
+  labs(x = "Timeline",
+       y = "Percentage (%)") +
+  geom_ribbon(aes(x = Date, 
+                  ymin = approve_lo, 
+                  ymax = approve_hi), 
+              inherit.aes = FALSE, 
+              alpha = .2, 
+              fill = "forestgreen") +
+  geom_line(alpha = 1, 
+            size = .8, 
+            color = "forestgreen") +
+   geom_ribbon(aes(x = Date, 
+                   ymin = disapprove_lo, 
+                   ymax = disapprove_hi), 
+               inherit.aes = FALSE, 
+               alpha = .2, 
+               fill = "orange") +
+  geom_line(data = app1, 
+            aes(x = Date, 
+                y = disapprove_estimate), 
+            alpha = 1,
+            size = .8, 
+            color = "darkorange") + 
+  geom_text(mapping = aes(label = label),
+            data = label_data, 
+            color = "black",
+            vjust = "top",
+            hjust = "left",
+            fontface = 2) +
+  geom_text(mapping = aes(label = label), 
+            data = label_data1, 
+            color = "black", 
+            vjust = "top",
+            hjust = "left",
+            fontface = 2) +
+  xlim(ymd("2017-01-23"), 
+       ymd("2020-10-12")) +
+  ggtitle("How Popular is Donald Trump?", 
+          subtitle = "An updating calculation of the president's approval rating,\na accounting for each poll's quality, recency, sample size and partisan lean.") +
+theme(legend.position = "none", 
+      plot.title = element_text(hjust = 0.5, face = "bold"), 
+      plot.subtitle = element_text(hjust = 0.5)) 
+```
+c) The graph is made a little bit better.
+
+d) My rendition of the FiveThirtyEight.com is more effective at telling data story than the original because:
+- I labeled my X-axis and Y-axis which isn't done in the original data. Even though the informations seems obvious, it adds up to the context of the story the data is telling.
+- I limited my X-axis and Y-axis only to the required limits so that the observations are clearer than the original plot with extra long y-axis. 
+
+
+
+Problem 4: Visualizing Locations
+
+a. and b.
+```{r, message=FALSE, warning=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+ggplot(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD)) +
+  geom_point(alpha = .9, 
+             size = .9, 
+             color = "purple") + 
+  labs(x = "Longitude",
+       y = "Latitude", 
+       title = "Crashes Across Portland Based on their Latitudinal and Longitudal Data") +
+  theme_classic()
+
+```
+
+c.
+```{r, message=FALSE, warning=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+reed <- data.frame(lon = -122.631184, 
+                   lat = 45.481092)
+ggplot(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD)) + 
+  geom_hex() +
+  scale_fill_distiller(palette = "Greens")
+```
+
+d. 
+```{r, message=FALSE, warning=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+reed <- data.frame(lon = -122.631184, 
+                   lat = 45.481092)
+ggplot(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD)) + 
+  geom_hex() +
+  scale_fill_distiller(palette = "Greens")+ 
+  geom_point(data = reed,
+             aes(x = lon,
+           y = lat), 
+           size = 4, 
+           color = "yellow") +
+  annotate("text",
+           x = -122.631184,
+           y = 45.481092, 
+           label = c("Reed College"),
+           color="red", 
+           size=5)
+```
+
+e. Based on both the plots and the google map data corresponding to the respective longitude-latitude, the crashes are more concentrated where highways and rods intersect by the Willamette river.  The crashes are also concentrated more towards busy streets and residential/work-place neighborhoods. There are less or no crashes where there are no houses and are mostly park or forest areas.
+The heat map definitely gives us a better sense of where the crashes are occuring. 
+
+f. On mapping weekdays as an aesthetics to the scatterplot, we see which days of week have comparatively more crashes.If we look at the new plot, weekends, mainly Saturday and Tuesday seem to have more crashes than other days of week.
+```{r, message=FALSE, warning=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+Week <- factor(pdx_crash_2018$CRASH_WK_DAY_CD, 
+               levels = c(1,2,3,4,5,6,7), 
+               labels = c("Sunday", "Monday", "Tuesday", 
+                          "Wednesday", "Thursday", "Friday", "Saturday"))
+ggplot(data = pdx_crash_2018, 
+       aes(x =  LONGTD_DD,
+           y = LAT_DD, color = Week)) +
+  geom_point(alpha = .9, size = .9) + 
+  theme_classic()
+
+```
+
+Problem 5: Visualizing a data 5 ways
+
+a. My variables are: TOT_INJ_CNT, CRASH_MO_NO, CRASH_WK_DAY_CD, SCHL_ZONE_IND, WRK_ZONE_IND
+
+b.
+```{r, message=FALSE, warning=FALSE}
+#Creating and modiying the dataset as required
+my_data <- pdx_crash_2018 %>%
+  select(CRASH_MO_NO, 
+         CRASH_WK_DAY_CD, 
+         SCHL_ZONE_IND, 
+         WRK_ZONE_IND, 
+         TOT_DRVR_AGE_01_20_CNT) %>%
+  mutate(n = n())
+```
+
+1) Scatterplot
+```{r, message=FALSE, warning=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+#Over the course of a year, how does the total injury counrt vary?
+Week <- factor(my_data$CRASH_WK_DAY_CD, 
+               levels = c(1,2,3,4,5,6,7), 
+               labels = c("Sunday", "Monday", "Tuesday", 
+                          "Wednesday", "Thursday", "Friday", "Saturday"))
+ggplot(data = pdx_crash_2018, 
+    mapping = aes(x = CRASH_MO_NO  ,
+           y = TOT_INJ_CNT, 
+           color = Week)) +
+  geom_point(alpha = 2,
+             size = 2) +
+labs(x = "Months (2018)",
+       y = "Total Injury", 
+       title = "Total Month-wise Injury Counts in Crashes")
+```
+Pros of the graph: 
+
+- We can clearly see May is the month with the highest number December is the month with the lowest number of crashes.
+
+- By adding the color aesthetics denoting days of week, we can kindda tell that Saturday and Tuesdays are the most common days for crashes. 
+
+Cons of the graph:
+
+- We cannot easily distinguish which days of week have more crashes. 
+
+- Because both the variables are discrete, the scatterplot is not super pretty. 
+
+- The story of the graph is not clear, it requires additional written or verbal explanation to clarify the story. 
+
+2) Stacked Bar Charts
+```{r, message=FALSE, warning=FALSE}
+pdx_crash_2018 <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_page1.csv")
+#Over the course of a year, how does the total injury counrt vary?
+Week <- factor(my_data$CRASH_WK_DAY_CD, 
+               levels = c(1,2,3,4,5,6,7),
+               labels = c("Sunday", "Monday", "Tuesday", 
+                          "Wednesday", "Thursday", "Friday", "Saturday"))
+ggplot(data = pdx_crash_2018, 
+    mapping = aes(x = CRASH_MO_NO, 
+                  fill = Week)) + 
+  geom_bar() +
+labs(x = "Months (2018)",
+       y = "Total Injury", 
+       title = "Total Month-wise Injury Counts in Crashes")
+```
+Pros of the graph:
+
+- It is easier to compare crashes across months. 
+
+- It better clarify trends.
+
+- It is easier to estimate key values at a glance.
+
+Cons of the graph:
+
+- It is hard to compare crashes in different weekdays across months.
+
+- It is not clear in the graph what each stacks in the bars are telling; mre context could be provided, maybe more labels to better tell what each stacks in the bars are telling.
+
+3) Box Plot
+```{r, message=FALSE, warning=FALSE}
+# pdx_crash_2018 %>%
+#   count(substance, racegrp) %>%
+ggplot(pdx_crash_2018, 
+       aes(x = CRASH_MO_NO, 
+           y = TOT_INJ_CNT, 
+       color = Week)) +
+  geom_boxplot()
+```
+Pros of the graph:
+
+- We see the trend in accross weekdays and across months, it is easier to compare datasets. 
+
+- We can see outliers. 
+
+Cons of the graph:
+
+- The statistics like mean and median are not clear in the box plots. Each boxes are of the same shape, so we can not tell where the data is concentrated. 
+
+- Most of the weeks have the same length of the top whisker which makes it hard to analyze the observation. 
+
+- There are just too many outliers, so the plot seems kindda sketchy. 
+
+4) Density Violin Plot
+```{r, message=FALSE, warning=FALSE}
+ggplot(pdx_crash_2018, 
+       aes(x = CRASH_MO_NO, 
+           y = TOT_INJ_CNT)) +
+  geom_violin() + 
+  geom_jitter(alpha = .3,
+              width = .1)
+
+```
+Pros of the graph:
+
+- We can see where the data is concentration and hence infer about the mean based on the shape of the geoms/ violin plots. 
+
+- Outliers are handled better; whisker lengths are more according to the respective data and hence better than the box-plot. 
+
+- We see the trend across months pretty easily, it is easier to compare datasets. 
+
+Cons of the graph:
+
+- It was difficult to add aesthetics to show crashes across different days of a week; plot ended up being too messy while trying to do so.
+
+- It is not familiar graph to many people. (I had never heard of this before taking this class.)
+
+
+5) Pie Chart
+```{r, message=FALSE, warning=FALSE}
+ area <- my_data %>%
+  filter(SCHL_ZONE_IND == 1 | WRK_ZONE_IND == 1)%>%
+  mutate(Zone = case_when(
+    SCHL_ZONE_IND == 1 ~ "school_zone",
+    WRK_ZONE_IND == 1 ~ "work_zone"
+  ))
+ggplot(area, aes(x="",
+                 fill= Zone)) +
+  geom_bar(width =1) +
+  coord_polar("y")+
+  labs(title = "Comparing Crashes in the School Zone Vs. Work Zone")+
+  theme_void()
+```
+
+Pros of the graph:
+
+- Piechart is a good choice to compare the composition of two variables. 
+
+- It is simple and easy to understand, even for an uninformed audience. It is pretty clear in the above chart that more crashes happen in work zones than in school zones. 
+
+Cons of the graph:
+
+- It is difficult or almost impossible to add more variables to add up to the aesthetics of the plot. 
+
+- Adding data labels and numbers will not be as useful as they become crowded and hard to read.
+
+- It will be hard to analyze the data if the slices in the circle are of similar size.
+
+- It cannot be used for multiple data sets. 
+
+
+
+

@@ -1,0 +1,134 @@
+---
+title: "Problem Set 2"
+author: "Shisham Adhikari"
+date: "Math 345"
+output:
+  pdf_document: default
+urlcolor: blue
+---
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+# Due: Before class on Thursday, 02/11/2021
+Collaborators: Insert names of anyone you talked about this assignment with
+
+# Goals of this lab
+1. Start working with spatial objects.
+1. Calculate distance matrices and an adjacency object.
+1. Practice your Data Viz.
+
+## Problem 1
+Let's practice creating spatial data objects using the "sp" package.
+
+a) Load any packages you need here:
+```{r}
+pacman::p_load(sp, tidyverse, ggplot2, datasets, spdep)
+```
+
+b) Create a "SpatialPoints" object from the "state.center" dataset that is in the datasets package. It should be preloaded. Make sure to set the CRS (use datum = WGS84). This may be helpful: https://rspatial.org/raster/spatial/3-vectordata.html#spatialpoints 
+```{r}
+pts <- SpatialPoints(state.center)
+pts
+#Now, we can set the CRS
+crdref <- CRS('+proj=longlat +datum=WGS84')
+pts <- SpatialPoints(state.center, proj4string=crdref)
+pts
+```
+
+
+c) Create a "SpatialPointsDataFrame" object that adds to your "SpatialPoints" object using the data in the matrix "state.x77".
+```{r}
+df <- data.frame(ID=1:50, state.x77)
+ptsdf <- SpatialPointsDataFrame(pts, data=df)
+ptsdf
+```
+
+d) Graph the points, making the size vary using one attribute and the color vary using another attribute from state.x77.
+```{r, message=FALSE, fig.width=5, fig.height=4}
+# Convert spatial data to a dataframe which ggplot can read
+plot_df = as(ptsdf, "data.frame")
+ggplot(plot_df, aes(x, y, 
+              size = Illiteracy,
+              color = Income)) + 
+  geom_point() +
+  labs(x = "Longitude (x-coordinates)",
+       y = "Latitude (y-coordinates)") +
+  coord_equal() + 
+  theme_light()
+```
+
+## Problem 2
+Let's see what the difference in distances are when we account for curvature and when we do not.
+
+a) Calculate the distance matrix accounts for the curvature of the earth. One function that can do this is "spDists()".
+```{r}
+M_curvature <- spDists(pts)
+```
+
+b) Calculate a distance matrix that does not account for the curvature of the earth. It is okay if the units of distance are not the same as in part (a) - this version of the distance matrix could consider the points to be in (x,y) space.
+```{r}
+M_euclidean <- spDists(pts, longlat = FALSE)
+```
+
+c) Normalize both matrices from parts (a) and (b) so that the rows add up to 1. Find the percent error for each entry by taking $(M_{euclidean} - M_{curvature}) / M_{curvature}$.
+```{r}
+#Normalizing M_curvature
+M_curvature[!is.finite(M_curvature)] <- NA
+rtot_c <- rowSums(M_curvature, 
+                  na.rm = TRUE)
+M_norm_c <- M_curvature / rtot_c
+rowSums(M_norm_c, 
+        na.rm = TRUE)
+
+#Normalizing M_euclidean
+M_euclidean[!is.finite(M_euclidean)] <- NA
+rtot_e <- rowSums(M_euclidean, 
+                  na.rm = TRUE)
+M_norm_e <- M_euclidean / rtot_e
+rowSums(M_norm_e,
+        na.rm = TRUE)
+
+#Required percent_error matrix
+percent_error <- sweep(M_norm_e, 1, M_norm_c)/M_norm_c
+```
+
+d) Discuss the magnitude of the errors.
+```{r}
+#First let's replace all NAs with 0s so that we can run max and min functions without error
+percent_error[!is.finite(percent_error)] =  0
+max(percent_error)
+min(percent_error)
+```
+We see that there are not consistent positive or negative errors, this is possibly because degrees of longitude can vary greatly from the actual distance. However,we do notice that the magnitude of both the minimum and maximum errors are close to 0.2. We can even look at how the errors vary based across rows and columns of the error matrix. 
+```{r}
+#Across rows
+max(rowSums(percent_error[, 1:50]))
+min(rowSums(percent_error[, 1:50]))
+
+#Across columns
+max(colSums(percent_error[1:50,]))
+min(colSums(percent_error[1:50,]))
+```
+We see that the magnitude of the errors are larger across columns than across rows. Also, all the errors are negative across rows whereas they are both positive and negative across columns. 
+
+## Problem 3
+Time for nearest neighbors and one more data viz.
+a) Create the 3-nearest neighbor matrix.
+```{r}
+Ak3.sp <- knearneigh(pts, k = 3)
+class(Ak3.sp)
+#We can directly grab the nearest neighbor matrix
+Ak3.sp$nn
+#Or, we can use following functions
+Ak3.nb <- knn2nb(Ak3.sp)
+Ak3.m <- nb2mat(Ak3.nb)
+```
+
+b) Graph the nearest neighbors as lines between your state centroids.
+```{r, fig.height=4, fig.width=4}
+par(mar = c(0, 0, 1, 0))
+plot(Ak3.nb, pts, col = "grey")
+title(main = "The nearest neighbors as lines between state centroids", 
+      cex.main = 0.9)
+```

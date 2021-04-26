@@ -1,0 +1,313 @@
+---
+title: "HW9"
+author: "Shisham Adhikari"
+date: "4/22/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", 
+                      message = FALSE, warning = FALSE, fig.width=4, fig.height = 3)
+library(tidyverse)
+library(knitr)
+library(tidyr)
+set.seed(1999) # set seed for reproducibility
+```
+
+
+1. **GLM with Gaussian Response**: Finding the maximum likelihood estimates of $\beta_0$, $\beta_1$, and $\sigma^2$.
+a) We have $f(y | x; \beta_0, \beta_1, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{\frac{(y - \beta_0 - \beta_1x_i)^2}{2\sigma^2}}$. \newline
+We know, \newline  
+Density for observation i is $f_i(y_i|x_i;\beta_0,\beta_1,\sigma^2)$ and the likelihood for each i is $L_i(\hat{\beta_0}, \hat{\beta_1},\hat{\sigma}^2)$. \newline
+For the entire result we get ln(L)=$\sum_{i=1}^n lnL_i (\hat{\beta_0}, \hat{\beta_1}, \hat\sigma^2|y_i,x_i)$, where $L_i=\frac{1}{\sqrt{2\pi\hat{\sigma}^2}} e^{\frac{(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)^2}{2\hat \sigma^2}}$ \newline
+This means:
+$ln(L_i) = \frac{-1}{2}ln(2\pi\hat\sigma^2)-\frac{(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)^2}{2\hat\sigma^2}$ \newline
+$\implies ln(L) = \sum_{i=1}^n \frac{-1}{2}ln(2\pi\hat\sigma^2)-\frac{(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)^2}{2\hat\sigma^2}$ = $\frac{-1}{2}nln(2\pi\hat\sigma^2)- \sum_{i=1}^n \frac{(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)^2}{2\hat\sigma^2}$.
+\newline To maximize this likelihood function and find MLEs, we need to set partial derivatives to zero and solve for estimates. 
+\newline $\implies \frac{d(ln(L))}{d(\hat{\beta_1})} = \sum_{i=1}^n 2(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)(-x_i)$=
+$-\sum_{i=1}^n y_ix_i + \hat{\beta_0}\sum_{i=1}^n x_i +\hat{\beta_1}\sum_{i=1}^n x_i^2 = 0$. \newline
+$\implies \frac{d(ln(L))}{d(\hat{\beta_0})} = \sum_{i=1}^n 2(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)(-1)$=$-\sum_{i=1}^n y_ix_i + \hat{\beta_0}\sum_{i=1}^n x_i +\hat{\beta_1}\sum_{i=1}^n x_i^2 = 0$. \newline
+And,
+ $\frac{d(ln(L))}{d(\hat\sigma^2)}=\frac{-n}{2\hat\sigma^2}\left(\sum_{i=1}^n \frac{(y_i - \hat{\beta_0}-\hat{\beta_1}x_i)^2}{2\hat\sigma^4}\right) = 0$ \newline
+ Using $\hat{\beta_0}=\overline{y}-\hat{\beta_1\overline{x}}$ and solving the equation gives
+\begin{align*}
+\hat{\beta}_0  &= \bar{y} - \hat{\beta}_1 \bar{x} \\
+\hat{\beta}_1  &= \frac{\sum_{i=1}^n(x_i - \bar{x})(y_i - \bar{y})}{\sum_{i=1}^n (x_i - \bar{x})^2} \\
+\hat{\sigma}^2 &= \frac{1}{n - 2}\sum_{i = 1}^n (y_i - (\hat{\beta}_0 + \hat{\beta}_1 x))^2 
+\end{align*}
+Turns out these MLEs are exactly the same as the least-squares estimates.
+
+b) R code to find them using numerical optimization:
+```{r}
+library(maxLik)
+library(mvtnorm)
+# specifying likelihood function using gaussian assumptions
+lgaussian <- function(n, sigma, B, X, Y) {
+  (-(n / 2) * log(2 * pi)) - (n * log( sigma)) - 
+    ((1 / (2 * (sigma^2))) * (sum((Y - (X %*% B))^2)))   
+}
+# Setting Parameters
+n <- 500
+p <- 1
+sigma <- 2
+# Generating X
+X <- cbind(1, rmvnorm(n, mean = rep(0, p), sigma = diag(p)/2))
+# Setting Beta values
+B <- c(1, 2)
+# Generating Y
+Y <- rnorm(n, mean = X%*%B, sd = sqrt(sigma))
+# Optim 
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = n, sigma = sigma)
+# maxLik
+ml <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = n, sigma = sigma)
+ml$estimate
+# glm 
+df <- data.frame(Y = Y, x1 = X[, 2])
+coef(glm(Y ~ x1, data = df, family = "gaussian"))
+```
+
+2. **Logistic Regression MLEs: Bias, Variance, and Shrinkage**: 
+
+For this problem we'll be working in a setting when the design matrix including the intercept is an $n \times 2$ matrix $X$ and the response is Bernoulli with an inverse logit link function to the linear predictor (logistic regression). Since there is no closed form of the MLE, we'll be using simulation to generate data from the Logistic Regression model.
+
+
+a) *How does a single estimate compare with the true mean function?* 
+```{r}
+library(mvtnorm)
+library(ggplot2)
+p <- 1
+n <- 50
+X <- as.matrix(cbind(1, rmvnorm(n,mean=rep(0,p), sigma=diag(p)/2)))
+B <- c(1,2)
+Y <- rbinom(n, size=1, prob=1/(1+exp(-X %*% B)))
+X2 <- X[,2]
+df <- as.data.frame(X2,Y)
+# more detailed call to glm for logistic regression
+fit_glm = glm(Y ~ X2, data = df, family = binomial(link = "logit"))
+funct <- function(x){
+ 1/(1+exp(-1*(1+2*x)))
+}
+ggplot(df, aes(x=X2, y=Y))+ geom_point(alpha=.5) +
+  stat_smooth(method="glm", type="response", 
+              se=FALSE, fullrange=TRUE, 
+              method.args = list(family=binomial(link="logit")), 
+              linetype="dashed") + xlim(-3, 2) + 
+              stat_function(fun=funct)
+```
+
+
+b)  *Is the MLE Biased?* 
+```{r}
+it <- 100
+n <- 50
+se <- seq(-3,2,by=0.1)
+beta <- data.frame(beta_0=rep(NA,100), beta_1=rep(NA,100))
+giant <- data.frame(trial=rep(NA,length(se)*it), x=rep(se, it), y=rep(NA,length(se)*it))
+gunt <- function(b0,b1,x){
+   1/(1+exp(-1*(b0+b1*x)))
+}
+for (i in 1:it) {
+X <- as.matrix(cbind(1, rmvnorm(n,mean=rep(0,p), sigma=diag(p)/2)))
+Y <- rbinom(n, size=1, prob=1/(1+exp(-X %*% B)))
+X2 <- X[,2]
+df <- data.frame(Y,X2)
+fit_glm = glm(Y ~ X2, df, family = binomial(link = "logit"))
+coef(fit_glm)
+b0 <- coef(fit_glm)[1]
+b1 <- coef(fit_glm)[2]
+giant$y[(51*(i-1)+1):(51*i)]<- gunt(b0=b0, b1=b1, x=se)
+giant$trial[(51*(i-1)+1):(51*i)] <- i
+}
+ ggplot(giant, aes(x=x, y=y, group=as.character(trial))) + geom_line(alpha=0.1)+theme_bw()
+```
+
+
+c) *How does the bias of an estimate change with sample size for a particular value of the parameter?*
+```{r}
+p <- 1
+sigma <- 2
+B <- c(1, 2)
+ndf <- rep(NA,100)
+biasdf <- rep(NA, 100)
+for(i in 1:100){
+X <- cbind(1, rmvnorm(n=i, mean = rep(0, p), sigma = diag(p)/2))
+Y <- rnorm(n=i, mean = X%*%B, sd = sqrt(sigma))
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = i, sigma = sigma)
+mle <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = i, sigma = sigma)
+ml$estimate
+df <- data.frame(Y = Y, x1 = X[, 2])
+beta1 <- coef(glm(Y ~ x1, data = df, family = "gaussian"))[2]
+biasdf[i] <- abs(beta1-2)
+ndf[i] <- i
+}
+biasplot <- data.frame(n=ndf, bias=biasdf)
+ ggplot(biasplot, aes(x=n, y=biasdf)) +geom_line(color="purple")
+```
+Comment: We see that the bias decreases as n increases. 
+
+d) *How does the bias of an estimate change with sample size for multiple values of the parameter?* 
+```{r}
+B1 <- c(1,4)
+it <- 30
+Bias1 <- rep(NA, it)
+n <- rep(NA, it)
+for(i in 1:it){
+X <- cbind(1, rmvnorm(n=i, mean = rep(0, p), sigma = diag(p)/2))
+Y <- rnorm(n=i, mean = X%*%B1, sd = sqrt(sigma))
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = i, sigma = sigma)
+mle <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = i, sigma = sigma)
+ml$estimate
+df <- data.frame(Y = Y, x1 = X[, 2])
+Beta1 <- coef(glm(Y ~ x1, data = df, family = "gaussian"))[2]
+Bias1[i] <- abs(Beta1-4)
+n[i] <- i
+}
+
+B11 <- c(1,6)
+Bias11 <- rep(NA, it)
+for(i in 1:it){
+X <- cbind(1, rmvnorm(n=i, mean = rep(0, p), sigma = diag(p)/2))
+Y <- rnorm(n=i, mean = X%*%B11, sd = sqrt(sigma))
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = i, sigma = sigma)
+mle <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = i, sigma = sigma)
+ml$estimate
+df <- data.frame(Y = Y, x1 = X[, 2])
+Beta11 <- coef(glm(Y ~ x1, data = df, family = "gaussian"))[2]
+Bias11[i] <- abs(Beta11-6)
+}
+
+B111 <- c(1,8)
+Bias111 <- rep(NA, it)
+for(i in 1:it){
+X <- cbind(1, rmvnorm(n=i, mean = rep(0, p), sigma = diag(p)/2))
+Y <- rnorm(n=i, mean = X%*%B111, sd = sqrt(sigma))
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = i, sigma = sigma)
+mle <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = i, sigma = sigma)
+ml$estimate
+df <- data.frame(Y = Y, x1 = X[, 2])
+Beta111 <- coef(glm(Y ~ x1, data = df, family = "gaussian"))[2]
+Bias111[i] <- abs(Beta111-8)
+}
+
+B1111 <- c(1,10)
+Bias1111 <- rep(NA, it)
+for(i in 1:it){
+X <- cbind(1, rmvnorm(n=i, mean = rep(0, p), sigma = diag(p)/2))
+Y <- rnorm(n=i, mean = X%*%B1111, sd = sqrt(sigma))
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = i, sigma = sigma)
+mle <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = i, sigma = sigma)
+ml$estimate
+df <- data.frame(Y = Y, x1 = X[, 2])
+Beta1111 <- coef(glm(Y ~ x1, data = df, family = "gaussian"))[2]
+Bias1111[i] <- abs(Beta1111-10)
+}
+
+B11111 <- c(1,12)
+Bias11111 <- rep(NA, it)
+for(i in 1:it){
+X <- cbind(1, rmvnorm(n=i, mean = rep(0, p), sigma = diag(p)/2))
+Y <- rnorm(n=i, mean = X%*%B11111, sd = sqrt(sigma))
+optim(par = c(0, 0), fn = lgaussian, X = X, Y = Y, n = i, sigma = sigma)
+mle <- maxLik(lgaussian, start = c(0, 0), X = X, Y = Y, n = i, sigma = sigma)
+ml$estimate
+df <- data.frame(Y = Y, x1 = X[, 2])
+Beta11111 <- coef(glm(Y ~ x1, data = df, family = "gaussian"))[2]
+Bias11111[i] <- abs(Beta11111-12)
+}
+plotdata <- data.frame(n=n, 
+            betavalues=c(rep(4,30),rep(6,30),rep(8,30),
+                         rep(10,30),rep(12,30)), 
+            Bias=c(Bias1, Bias11, Bias111, Bias1111, Bias11111))
+ggplot(plotdata, aes(x=n, y=Bias, group=betavalues, color=as.factor(betavalues))) +
+  geom_line() 
+```
+Comment: We see that the bias decreases as n increases for every values of beta. Note that the spikes are due to the Monte-Carlo Variability. 
+
+e) *Can I perform shrinkage on logistic coefficients?* 
+```{r}
+library(glmnet)
+p <- 1
+n <- 50
+X <- as.matrix(cbind(1, rmvnorm(n,mean=rep(0,p), sigma=diag(p)/2)))
+B <- c(1,2)
+Y <- rbinom(n, size=1, prob=1/(1+exp(-X %*% B)))
+X2 <- X[,2]
+df <- data.frame(x=X2,y=Y)
+make_numeric <- function(x){
+  estimates <- as.numeric(x)
+  estimates <- c(estimates[1], estimates[3])
+  estimates
+}
+fit <- glmnet(X, Y,family = "binomial", alpha = 0, lambda = 0.05)
+# t1 <- coef(fit)
+b1 <- make_numeric(coef(fit))
+fit1 <- glmnet(X, Y,family = "binomial", alpha = 0, lambda = 0.03)
+b2 <- make_numeric(coef(fit1))
+fit2 <- glmnet(X, Y,family = "binomial", alpha = 0, lambda = 0.2)
+b3 <- make_numeric(coef(fit2))
+
+funct <- function(x, b0, b1){
+  B <- matrix(c(b0, b1))
+  X <- matrix(cbind(1, x), nrow = length(x), 
+              ncol = 2)
+  1/(1 + exp(- X %*% B)) %>% as.numeric()
+}
+cols <- c("Estimated mean from (a)" = "black", "lamda=0.05" = "red", "lamda=0.03" = "purple", "lamda=0.2" = "darkgreen", "True mean from(a)"="blue")
+ggplot(df, aes(x=x, y=y))+ geom_point(alpha=.5) +
+  stat_smooth(method="glm", type="response", se=FALSE, fullrange=TRUE, 
+              method.args = list(family=binomial(link="logit")), 
+              aes(color="True mean from(a)")) + xlim(-3, 2) + 
+  stat_function(fun = funct, args = list(b0 = 1, b1 = 2), 
+                aes(color="Estimated mean from (a)")) +
+stat_function(fun = funct, args = list(b0 = b1[1], b1 = b1[2]), 
+              aes(color="lamda=0.05")) + 
+  stat_function(fun = funct, args = list(b0 = b2[1], b1 = b2[2]), 
+                aes(color="lamda=0.03")) + 
+  stat_function(fun = funct, args = list(b0 = b3[1], b1 = b3[2]),
+                aes(color="lamda=0.2"))+
+  scale_colour_manual(values = cols)
+```
+
+f) 
+```{r}
+it <- 100
+n <- 50
+se <- seq(-3,2,by=0.1)
+beta <- data.frame(beta_0=rep(NA,100), beta_1=rep(NA,100))
+giant <- data.frame(trial=rep(NA,length(se)*it), 
+                    x=rep(se, it), y_mle=rep(NA,length(se)*it), 
+                    y_rid=rep(NA,length(se)*it))
+gunt <- function(b0,b1,x){
+   1/(1+exp(-1*(b0+b1*x)))
+}
+for (i in 1:it) {
+X <- as.matrix(cbind(1, rmvnorm(n,mean=rep(0,p), sigma=diag(p)/2)))
+Y <- rbinom(n, size=1, prob=1/(1+exp(-X %*% B)))
+X2 <- X[,2]
+df <- data.frame(Y,X2)
+fit_glm = glm(Y ~ X2, df, family = binomial(link = "logit"))
+coef(fit_glm)
+b0 <- coef(fit_glm)[1]
+b1 <- coef(fit_glm)[2]
+fit <- glmnet(X, Y,family = "binomial", alpha = 0, lambda = 0.2)
+b_rid <- make_numeric(coef(fit))
+b0r <- b_rid[1]
+b1r <- b_rid[2]
+giant$y_mle[(51*(i-1)+1):(51*i)]<- gunt(b0=b0, b1=b1, x=se)
+giant$y_rid[(51*(i-1)+1):(51*i)]<- gunt(b0=b0r, b1=b1r, x=se)
+giant$trial[(51*(i-1)+1):(51*i)] <- i
+}
+giant1 <- giant %>%
+  pivot_longer(cols = starts_with("y"), 
+    names_to = "y", 
+    values_to = "Estimates") 
+p1 <- giant1 %>% 
+  arrange(trial,y)%>%
+  ggplot(aes(x=x, y=Estimates,
+             group=factor(trial), color=y)) +geom_path(alpha=0.2)+theme_bw()
+p1
+```
+Comments: We see that from all the three graphs, ridge regression traded some variance for bias, meaning the ridge estimates have more bias but less variance than the MLE estimates. This matches the theory we talked in the class and that ridge regression leads to an overall smaller error.
+

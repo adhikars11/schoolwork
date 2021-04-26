@@ -1,0 +1,203 @@
+---
+title: "Math 392 HW 5"
+author: "Shisham Adhikari"
+date: "2/29/2020"
+header-includes:
+   - \usepackage{mathtools,amsmath,amsthm,amssymb, graphicx, physics, multicol}
+   -  \DeclareUnicodeCharacter{2212}{-}
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+Given that $X_1,\cdots, X_n$ form a random sample from the normal distribution with unknown mean $\mu$ and known variance $\sigma^2$. We need to find how large a random sample must be taken in order that there will be a confidence interval for $\mu$ with confidence coefficient 0.95 and length less than 0.01$\sigma$. We did in class that for $X \sim N(\mu,\sigma^2)$ where $\mu$ is unknown and  $\sigma^2$ is known, the pivotal statistics is $\frac{\bar{X}-\mu}{\frac{\sigma}{\sqrt{n}}} \sim N(0, 1)$. If so, we saw in class that the confidence interval will be: 
+\begin{align*}
+P(q_1 < \frac{\bar{X}-\mu}{\frac{\sigma}{\sqrt{n}}} < q_2) \\
+P(\bar{X} - q_2\frac{\sigma}{\sqrt{n}} < \mu < \bar{X} - q_1\frac{\sigma}{\sqrt{n}}) \\
+\textrm{Solving this in class, we got our final confidence interval will be:}\\
+(\bar{X} - q_2\frac{\sigma}{\sqrt{n}}, \bar{X} - q_1\frac{\sigma}{\sqrt{n}})
+\end{align*}
+Using the table on the back of the table, for the confidence coefficient 0.95 i.e. 95% confidence, the critical value is 1.96. This means the above confidence interval becomes $(\bar{X} - 1.96\frac{\sigma}{\sqrt{n}}, \bar{X} + 1.96\frac{\sigma}{\sqrt{n}})$ . If so our required condition is:
+\begin{align*}
+\textrm{confident length} < 0.01\sigma \\
+\textrm{i.e.} (\bar{X} + 1.96\frac{\sigma}{\sqrt{n}}) - (\bar{X} - 1.96\frac{\sigma}{\sqrt{n}}) < 0.01\sigma\\
+\bar{X} + 1.96\frac{\sigma}{\sqrt{n}} - \bar{X} + 1.96\frac{\sigma}{\sqrt{n}}) < 0.01\sigma \\
+3.92\frac{\sigma}{\sqrt{n}} < 0.01\sigma \\
+\frac{3.92}{\sqrt{n}}< 0.01\\
+\frac{3.92}{0.01}< \sqrt{n}\\
+392 < \sqrt{n}\\
+\textrm{Therefore, } n > 153664
+\end{align*}
+Thus, a random sample must be larger than 153664.
+
+####Extra_Problem
+We're studying a process where our sample is drawn from the continuous distribution, $X_1, X_2, \ldots, X_n \sim \textrm{Unif}(0, \theta)$ and we're still interested in estimating $\theta$. The MLE and Method of Moments estimators are the same:
+$$\begin{aligned}
+\hat{\theta}_{MLE} &= \textrm{max}(X_1, X_2, \ldots, X_n) = X_{max} \\
+\hat{\theta}_{MOM} &= 2 \bar{X} \\
+\end{aligned}$$
+
+###1.
+To check for the bias of each estimator, Bias($\hat{\theta}_{MLE}$) = $E(\hat{\theta}_{MLE})$ - $\theta$ = $E(X_{max}) - \theta$ = $\int_0^\theta \frac{nx^{n-1}x}{\theta^n}dx$ - $\theta$ = $\frac{n}{\theta^n}\frac{\theta^{n+1}}{n+1} - \theta$ = $\theta (\frac{n}{n+1}-1)$ = $\frac{-\theta}{n+1}$.We that the bias of $\hat{\theta}_{MLE}$ is negative and is equal to $\frac{-\theta}{n+1}$. To find an additional estimator that corrects that bias, we simply divide the original biased estimator by the factor of bias. So the new estimator becomes, $\hat{\theta}'$ = $\frac{n+1}{n}\hat{\theta}_{MLE}$ so that $E(\frac{n+1}{n}\hat{\theta}_{MLE})$ = $\frac{n+1}{n}\frac{n}{n+1}\theta$ = $\theta$ which is unbiased. Bias($\hat{\theta}_{MOM}$) = E($\hat{\theta}_{MOM}$) - $\theta$ = E(2$\bar{X}$) - $\theta$ = 2E($\bar{X}$)-$\theta$ = $2E(\frac{1}{n} \sum_{i=1}^n X_i)-\theta$ = $\frac{2}{n} \sum_{i=1}^n E(X_i)$ = $\frac{2}{n}\sum_{i=1}^n\frac{\theta}{2}$ = $\frac{2}{n}\frac{n\theta}{2}$ = $\theta$, which means this estimator is unbiased. As $\hat{\theta}_{MOM}$ and $\hat{\theta}'$ = $\frac{n+1}{n}\hat{\theta}_{MLE}$ are unbiased, these still remember unbiased as sample size grows. For the $\hat{\theta}_{MLE}$, however, if the sample size increases, the bias goes to zero and hence the estimator becomes asymptotically unbiased. The plot for the only biased estimator of the three estimators is given by:
+```{r, echo = FALSE}
+theta <- 5
+MLE <- function(n){-theta/(n+1)}
+MOM <- function(n){0}
+MLE_corr <- function(n){0}
+ggplot(data.frame(x=c(0,20)), aes(x=x))+
+  stat_function(aes(color = "MLE"),
+                fun = MLE) +
+ stat_function(aes(color = "MOM"),
+                fun = MOM) +
+  stat_function(aes(color = "MLE_corr"),
+                fun = MLE_corr)+
+ ggtitle("Bias as a function of sample size") +
+  labs(y="Bias for each estimator", x = "sample size (n)")
+```
+
+
+###2.
+Var($\hat{\theta}_{MLE}$)= $E(\hat{\theta}_{MLE})^2 - [E(\hat{\theta}_{MLE})]^2$ = $\int_0^\theta \frac{nx^{n-1}x^2}{\theta^n} dx$ - $\left(-\frac{n}{\theta^n}\frac{\theta^{n+1}}{n+1}\right)^2$ = $\frac{n\theta^2}{n+2}$ - $[\frac{n\theta}{n+1}]^2$ = $\frac{n\theta^2}{n+2}$ - $\frac{n^2\theta^2}{(n+1)^2}$ = $\frac{n\theta^2}{(n+1)^2(n+2)}$, which is the required variance of the MLE. As sample size increases, the variance goes to zero. Var($\hat{\theta}_{MOM}$) = Var($2\bar{X}$)= $4Var(\bar{X})$ =  4$Var(\frac{1}{n} \sum_{i=1}^n X_i)$ = $\frac{4}{n^2}Var(\sum_{i=1}^n X_i) = \frac{4}{n^2}n Var(X_i)$ = $4\frac{\theta^2}{12}$ = $\frac{\theta^2}{3n}$, which is the required variance of the MOM estimator. As sample size increases, the variance goes to zero.Var($\frac{n+1}{n}\hat{\theta}_{MLE}$)= $(\frac{n+1}{n})^2 Var(\hat{\theta}_{MLE})$ = $\frac{(n+1)^2}{n^2}\frac{n\theta^2}{(n+1)^2(n+2)}$ = $\frac{\theta^2}{n(n+2)}$, which is the required variance of the corrected MLE. As sample size increases, the variance goes to zero.
+```{r, echo = FALSE}
+theta <- 5
+var_mle <- function(n){(n*theta^2)/((n+1)^2*(n+2))}
+var_mom <- function(n){theta^2/(3*n)}
+var_new<- function(n){theta^2/(n*(n+2))}
+ggplot(data.frame(x=c(0,10)), aes(x=x))+
+  stat_function(aes(color = "var_mle"),
+                fun = var_mle) +
+ stat_function(aes(color = "var_mom"),
+                fun = var_mom) +
+  stat_function(aes(color = "var_new"),
+                fun = var_new) +
+   ggtitle("Variance as a function of sample size") +
+  labs(y="Variance", x = "sample size (n)")
+```
+
+###3. 
+MSE($\hat{\theta}$)=Var($\hat{\theta}$)+Bias$\hat{\theta}^2$. 
+
+```{r, echo = FALSE}
+theta <- 1
+mse_mle <- function(n){(2*theta^2)/((n+1)*(n+2))}
+mse_mom <- function(n){theta^2/(3*n)}
+mse_new<- function(n){theta^2/(n*(n+2))}
+ggplot(data.frame(x=c(0,10)), aes(x=x))+
+  stat_function(aes(color = "mse_mle"),
+                fun = mse_mle) +
+ stat_function(aes(color = "mse_mom"),
+                fun = mse_mom) +
+  stat_function(aes(color = "mse_new"),
+                fun = mse_new)+
+  scale_y_log10() +
+  ggtitle("MSE as a function of sample size") +
+  labs(y="MSE", x = "sample size (n)")
+```
+Based on the plot, we see that the bias-corrected MLE approaches MSE=0 faster than the other two, so we would use the $\frac{n+1}{n}\hat{\theta}_{MLE}$.
+
+###4.
+A) $lim_{n\to\infty}$ $E(\hat{\theta}) - \theta$ = 0  
+B) $lim_{n\to\infty}$ $Var(\hat{\theta})$ = 0 
+For $\hat{\theta}_{MLE}$, as $lim_{n\to\infty}$, the bias goes to zero which means $E(\hat{\theta}) - \theta$ = 0 and also $Var(\hat{\theta})$ goes to 0. So, $\hat{\theta}_{MLE}$ is consistent. 
+For $\hat{\theta}_{MOM}$, it is an unbiased estimator so for $lim_{n\to\infty}$, $E(\hat{\theta}) - \theta$ = 0 and also  $Var(\hat{\theta})$ goes to 0. So, $\hat{\theta}_{MOM}$ is consistent. 
+For $\frac{n+1}{n}\hat{\theta}_{MLE}$, it is an unbiased estimator so for for $lim_{n\to\infty}$, $E(\hat{\theta}) - \theta$ = 0 and also $Var(\hat{\theta})$ goes to 0. So, $\frac{n+1}{n}\hat{\theta}_{MLE}$ is consistent. 
+
+
+###5. 
+$\hat{\theta}_{MLE}$: We already calculated that the pdf of the estimate is $n\cdot\frac{x^{n-1}}{\theta^n}$ for $0\leq x \leq\theta$ and 0 otherwise. This is the required distribution of the $\hat{\theta}_{MLE}$. It looks like some form of stretched beta distribution. 
+$\hat{\theta}_{MOM}$: The Irwin-Hall distribution is given by the mgf of the sums of all $X_i$s. If so $\hat{\theta}_{MOM}$ = $2\bar{X}$ = $2\cdot\frac{1}{n}\sum_{i=1}^nX_i$ can be defined by the mgf of the sums of $X_i$s as: $\psi_{X_1,X_2,\cdots X_n}(t)$ = $\psi_{X_1}(t)\cdots\psi_{X_1}(t)$ (Using the property of iid) = $(\psi_{X_1}(t))^n$ = $\left(\frac{1}{\theta}\int_0^\theta e^{tx_1} dx_1\right)$ = $\left(\frac{e^t - 1}{t\theta}\right)^n$, which is the required Irwin-Hall distribution. 
+The Center Limit Theorem says, $\sqrt{n}\left(\frac{\bar{X}-\frac{\theta}{2}}{\frac{\theta}{\sqrt{12}}}\right)\sim N(0,1)$. If so by the property of the normal distribution, $\bar{X}\sim$ $N\left(\frac{\theta}{12},\frac{\theta^2}{12n}\right)$ and again using another property this is equivalent to $2\bar{X}\sim N\left(\theta,\frac{\theta^2}{3n}\right)$, which is the required distribution of the estimator. 
+$\frac{n+1}{n}\hat{\theta}_{MLE}$: For the bias-corrected MLE, to find the distribution, we solve for $P\left(\frac{n+1}{n}X_{max} \leq x\right)$ = $\left(\frac{xn}{(n+1)^\theta}\right)^n$. From this, we get the pdf by using the distribution for the $X_{max}$ for the uniform distribution, which is here $\frac{n\left(\frac{xn}{(n+1)^\theta}\right)^n}{x}$, which is the required distribution of our estimator.
+
+
+## 6. Empirical Distributions
+```{r EmpPlotSetup, message = FALSE, echo = FALSE}
+it <- 10000
+n <- 10
+set.seed(420)
+{{ThetaHats <- rep(NA, 50000)}}
+{{MLEHats <- rep(NA, 50000)}}
+c <- n/(n+1)
+for (i in 1:it) {
+  x <- runif(n = n, 0, theta)
+  ThetaHats[i] <- 2*mean(x)
+  MLEHats[i] <- max(x)
+}
+CorrMLEHats <- MLEHats * c
+```
+\textbf{Empirical Distribution of the MLE estimator}
+```{r EmpPlotMLE, message = FALSE, echo = FALSE}
+#Use PDF of sampling distribution
+pdf_MLE <- function(x){(n/theta) * (x/theta)^(n-1)}
+#Plot histogram using generated estimators, and density curve of PDF
+ggplot(data.frame(MLEHats), aes(MLEHats)) +
+  geom_histogram(aes(y =..density..), fill = "grey", color = "black") +
+  stat_function(fun = pdf_MLE) +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  theme_minimal()
+```
+\textbf{Empirical Distribution of the Bias-Corrected MLE estimator}
+```{r EmpPlotCorrMLE, message = FALSE, echo = FALSE}
+#Use PDF of sampling distribution
+pdf_CorrMLE <- function(x){((n+1)/theta)^n * (x/n)^(n-1)}
+#Plot histogram using generated estimators, and density curve of PDF
+ggplot(data.frame(CorrMLEHats), aes(CorrMLEHats)) +
+  geom_histogram(aes(y =..density..), fill = "grey", color = "black") +
+  stat_function(fun = pdf_CorrMLE) +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  theme_minimal()
+```
+
+\textbf{Empirical Distribution of MOM estimator}
+```{r EmpPlotMOM, message = FALSE, echo = FALSE}
+#Set up normal distribution parameters for sampling distribution
+sigma <- theta/sqrt(3*n)
+#Plot histogram using generated estimators, and density of normal approx. of sampling distribution.
+ggplot(data.frame(ThetaHats), aes(ThetaHats)) +
+  geom_histogram(aes(y =..density..),
+                 fill = "grey", color = "black") +
+    stat_function(fun = dnorm, args = list(mean = theta, sd = sigma)) +
+    theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) + theme_minimal() +
+    labs(title = "",
+         caption = "",
+         y = "Density") +
+    xlim(theta - 0.5, theta + 0.5)
+```
+
+
+
+###7. 
+$\hat{\theta}_{MLE}$: We know that the cdf of this estimators is simply $(\frac{x}{\theta})^n$ meaning $P(X_{max} \leq) = \left(\frac{x}{\theta}\right)^n$, if so $P(\frac{X_{max}}{\theta} \leq x)$ = $x^n$ which means the pivotal statistics is $\frac{X_{max}}{\theta}$. Setting this cdf to 0.025 and 0.975, we get $q_1=(0.025)^{\frac{1}{n}}$, $q_2=(0.975)^{\frac{1}{n}}$. Using our pivotal statistics, 
+\begin{align*}
+P\left(q_1 < \frac{X_{max}}{\theta} < q_2\right) &= 0.95 \\
+P\left(\frac{X_{max}}{q_2} < \theta < {X_{max}}{q_1}\right) &= 0.95 \\
+\end{align*}
+  Thus, the 95% CI for the $\hat{\theta}_{MLE}$ is $\left(\frac{X_{max}}{(0.025)^{\frac{1}{n}}}, \frac{X_{max}}{(0.975)^{\frac{1}{n}}} \right)$.  
+For $\hat{\theta}_{MOM}$, we can use our result from the CLT, $\sqrt{n}\left(\frac{\bar{X}-\frac{\theta}{2}}{\frac{\theta}{\sqrt{12}}}\right)\sim N(0,1)$ as our pivotal statistics. If so the CI is
+\begin{align*}
+P\left(q_1 < \sqrt{n}\left(\frac{\bar{X}-\frac{\theta}{2}}{\frac{\theta}{\sqrt{12}}}\right) < q_2\right) &= 0.95 \\
+P\left(\frac{2\sqrt{12n}\bar{X}}{2q_2+\sqrt{12n}} < \theta < \frac{2\sqrt{12n}\bar{X}}{2q_1+\sqrt{12n}}\right) &= 0.95 \\
+ P\left(\frac{2\sqrt{12n}\bar{X}}{3.92+\sqrt{12n}} < \theta < \frac{2\sqrt{12n}\bar{X}}{-3.92+\sqrt{12n}}\right) &= 0.95 
+\end{align*}
+Thus, the required CI is $\left(\frac{2\sqrt{12n}\bar{X}}{3.92+\sqrt{{12n}}}, \frac{2\sqrt{{12n}}\bar{X}}{-3.92+\sqrt{{12n}}}\right)$.   
+For $\frac{n+1}{n}\hat{\theta}_{MLE}$, the pivotal statistics is $\frac{n+1}{n\theta}X_max$ so that $P\left(\frac{n+1}{n\theta}X_{max} \leq x\right) = P\left(X_{max} \leq \frac{nx\theta}{n+1}\right) = \left(\frac{nx}{n+1}\right)^n$. Setting this cdf to 0.025 and 0.975, we get the two bounds as $q_1 = \frac{n+1}{n}(0.025)^\frac{1}{n}$ and $q_2 = \frac{n+1}{n}(0.975)^\frac{1}{n}$ and the required CI is
+\begin{align*}
+P\left(q_1 < \frac{n+1}{n\theta}X_{max} < q_2\right) &= 0.95 \\
+P\left(\frac{n+1}{nq_1}X_{max} < \theta < \frac{n+1}{nq_2}X_{max}\right) &= 0.95
+\end{align*}
+Thus the required CI for $\frac{n+1}{n}\hat{\theta}_{MLE}$ is
+$\left(\frac{X_{max}}{{0.025}^\frac{1}{n}}, \frac{X_{max}}{{0.975}^\frac{1}{n}}\right)$. This is the required CI for the bias-corrected MLE.
+

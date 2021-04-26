@@ -1,0 +1,161 @@
+---
+title: "Math392_HW3"
+author: "Shisham Adhikari"
+date: "2/15/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(fig.align = "center", 
+                      message = FALSE, warning = FALSE)
+library(tidyverse)
+library(knitr)
+library(here)
+```
+
+```{r eval = TRUE}
+# Downloaded from https://www.statecancerprofiles.cancer.gov/ on 2/8/20
+incd <- read_csv(here("Math 392", "incd.csv"), 
+                 col_names = FALSE, 
+                 skip = 9, 
+                 na = c("", "NA", "*")) %>%
+  select(1, 2, 4) %>%
+  slice(2:3142)
+names(incd) <- c("county", "fips", "cancer_incd")
+incd <- incd %>%
+  mutate(county = tolower(county) %>%
+           str_replace(pattern = "\\(.*\\)",
+                       replacement = "")) %>%
+  separate(county, into = c("county", "state"), sep = ", ") %>%
+  mutate(county = str_replace(county,
+                              pattern = " county",
+                              replacement = ""),
+         cancer_rate = cancer_incd/100000) %>%
+  drop_na(cancer_rate)
+x <- incd$cancer_incd
+n <- length(x)
+alpha <- (n * sum(x))/(n * sum(x * log(x)) - sum(log(x)) * sum(x))
+beta <- n^2/(n * sum(x * log(x)) - sum(log(x)) * sum(x))
+```
+
+
+###Exercise 1:
+```{r results = "asis", eval = TRUE}
+set.seed(847)
+library(usmap)
+data(countypop)
+countypop <- countypop %>%
+  mutate(true_rate = rgamma(n(), alpha, beta))
+library(xtable)
+```
+
+```{r}
+ggplot(data = countypop, aes(x = pop_2015, y = true_rate)) +
+  geom_point(alpha = .9, size = .9, color = "purple") +
+  labs(x = "Size of Population", y = "The Corresponding Cancer Rate", title = "Cancer Rates based on Different Population Size") +
+  theme_classic()
+  
+```
+The data is not clear in this plot, so tranforming the scale we get, 
+```{r}
+ggplot(data = countypop, aes(x = pop_2015, y = true_rate)) +
+  geom_point(alpha = .9, size = .9, color = "purple") + 
+  labs(x = "Size of Population", y = "The Corresponding Cancer Rate", title = "Cancer Rates based on Different Population Size") +
+  theme_classic() +
+  scale_x_log10()
+  
+```
+Description of the plot: On tranforming the scale, we see that the plot is just a cluster of points. This implies that there is no relationship between the size of population and the corresponding cancer rate. 
+
+###Exercise 2:
+```{r}
+countypop <- countypop %>% 
+  mutate(n_cases = rpois(length(countypop$pop_2015), countypop$pop_2015 * countypop$true_rate/100000))
+```
+
+###Exercise 3:
+```{r}
+library(maps)
+county_shapes <- map_data("county")
+state_df <- tibble(abbr = state.abb,
+                   region = tolower(state.name))
+map_df <- countypop %>%
+  mutate(county = tolower(county) %>%
+           str_replace(pattern = " county",
+                       replacement = "")) %>%
+  left_join(state_df, by = "abbr") %>%
+  left_join(county_shapes, by = c("region" = "region", "county" = "subregion"))
+# A map of the smallest 1% of US counties by population
+map_df <- map_df %>%
+  mutate(small_counties = pop_2015 < quantile(pop_2015, .1))
+ggplot() +
+  geom_polygon(data = map_df, 
+               aes(x = long,
+                   y = lat, 
+                   group = group,
+                   fill = small_counties)) +
+  scale_fill_manual(values = c("gray", "tomato")) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+    labs(x = "Longitude of counties", y = "Latitutde of counties", title = "Counties that rank in the top 10% in terms of number of cancer cases") 
+```
+Description of the graph: The counties that rank in the top 10% in terms of number of cancer cases are relatively smaller and/or rural counties, especially in midwest. The main thing to note is that there are no big cities in the top 10%. This makes sense because the relatively higher rates in the smaller counties might be caused by the high variability inherent in counties with very small populations. Also, there are much more rural areas in the US than the cities so while choosing a random sample, it is going to be mostly rural areas.
+
+###Exercise 4:
+For no. 4, we saw in today's HW problem 7.5.5 that the M.L.E. of the parameter of a poisson distribution is the sample mean of the data. We can use the same logic here, except in this case, for each county we only observe one observation and hence the  sample mean is in fact the sample itself, let's call it X. If so, using the conclusion from 7.5.5, M.L.E of the parameter of $X_i \sim  Poisson (n_i\theta_i/100000)$ is given by $$n_i\hat{\theta_i}/100000 = \textrm{sample mean} = \textrm{sample} = X$$ \\  Thefore, the required M.L.E of $\hat{\theta_i}$ is given by $$\hat{\theta_i} = \frac{100000X}{n_i}$$
+```{r}
+countypop <- countypop %>% 
+  mutate(MLE = 100000*n_cases/pop_2015)
+```
+
+###Exercise 5:
+From the class notes, the Squared loss Bayes Estimator is given by:
+$$E_\theta(\theta|\underline{x})=\frac{\sum_{i=1}^{n}x_i + \alpha_{prior}} {n + \beta_{prior}}$$
+To use this, we use the Gamma prior with $\alpha_{prior}$ = 17.87 and $\beta_{prior}$=.7144. Now we can use the above formula to find the new estimate. 
+```{r}
+countypop <- countypop %>% 
+  mutate(Bayes_estimate = (n_cases + 17.87)/((pop_2015/100000)+0.7144))
+```
+
+```{r results = "asis", eval=TRUE}
+library(xtable)
+print(xtable(slice(countypop, 1:10)))
+```
+
+### Exercise 6:
+```{r}
+p1 <- ggplot(countypop, aes(x = pop_2015, y = MLE)) + scale_x_log10() + 
+  geom_point(alpha = .9, size = .9, color = "maroon") 
+p2 <- ggplot(countypop, aes(x = pop_2015, y = Bayes_estimate)) + scale_x_log10() +
+   geom_point(alpha = .9, size = .9, color = "forestgreen")
+library(patchwork)
+p1 + p2
+```
+Description of the trend: The MLE plot is cnverging from left to right as the population size increases which makes sense for the same reason we have been discussing so far, the relatively higher rates in the smaller counties might be caused by the high variability inherent in counties with very small populations. That's what we are seeing, as we move towards the larger population county, our MLEs are converging to a constant/stable value. For the Bayes estimate, our plot is mainly clustered around some constant or line. This makes sense as we saw in the exercise 1. that there is no significant relationship between population size and the cancer rates. This is captured by the Bayes Estimate plot. 
+
+### Exercise 6:
+```{r}
+library(usmap)
+library(ggplot2)
+
+plot_usmap(data = countypop, values = "MLE") + 
+  theme(legend.position = "right", plot.title = element_text(hjust = 0.5)) + 
+  scale_fill_continuous(
+      low = "white", high = "red", name = "MLE", label = scales::comma) + labs(title = "MLEs across the US counties")
+```
+Evaluation: We again see the higher MLEs are in the smaller counties. This pattern is again for the same reason, relatively higher rates in the smaller counties due to the high variability inderent in counties with very small populations. 
+
+
+
+```{r}
+library(usmap)
+library(ggplot2)
+
+plot_usmap(data = countypop, values = "Bayes_estimate") + 
+  theme(legend.position = "right", plot.title = element_text(hjust = 0.5)) + 
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Bayes Estimates", label = scales::comma) + labs(title = "Bayes Estimators across the US counties") 
+```
+Explanation: A Bayes Estimator requires that we specify a loss function and a prio/posterior. On coalating all of the information that we have about the variability in cancer rater across counties, we get rid of the relatively higher rates in the smaller counties caused by the high variability inderent in counties with very small populations. And, on doing so we see that the size of county/population doesn't have a significant effect on the cancer rates. This is implied by the similar color/distribution of the Bayes Estimator all across the US map. This matches our conclusion from Exercise 1. 

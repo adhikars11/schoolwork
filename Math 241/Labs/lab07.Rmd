@@ -1,0 +1,354 @@
+---
+title: "Lab 7"
+author: "Shisham"
+date: "Math 241, Week 9"
+output:
+  pdf_document
+urlcolor: purple
+---
+
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(wordcloud)
+library(viridis)
+```
+### Problem 1: What's in a Name?
+  
+1.
+```{r}
+library(babynames)
+data("babynames")
+#?babynames
+```
+
+a.
+```{r, eval = TRUE}
+ z_start <- babynames %>%
+   filter(str_detect(string = name, pattern = "^Z"), year == 2000, sex=="F") %>%
+   top_n(10)
+z_start
+```
+
+b. 
+```{r, eval = TRUE}
+z_in <- babynames %>%
+   filter(str_detect(string = name, pattern = "Z|z"), year == 2000, sex=="F") %>%
+   top_n(10)
+z_in
+```
+
+
+c. 
+```{r, eval = TRUE}
+ z_end <- babynames %>%
+   filter(str_detect(string = name, pattern = "z$"), year == 2000, sex=="F") %>%
+   top_n(10)
+z_end
+```
+
+d. Zoe shows show up on more than one list.
+```{r}
+z_startin <- inner_join(z_start,z_in, by="name") #Zoe
+z_startend <- inner_join(z_start,z_end, by="name") #None
+z_inend <- inner_join(z_in,z_end, by="name")#None
+```
+
+
+e.
+```{r, eval = FALSE}
+ babynames %>%
+   filter(str_detect(name, "[:digit:]"))
+```
+ We see that none of the baby names contain a numeric (0-9) in them.
+
+f.
+```{r}
+babynames1 <- babynames %>%
+  mutate(name = str_to_lower(name)) %>%
+   group_by(name) %>%
+  summarise(total = sum(n)) %>%
+ mutate(num = str_extract(name, pattern = "zero|one|two|three|four|five|six|seven|eight|nine")) %>%
+  filter(num != "character(0)")%>%
+  group_by(num)%>%
+   summarise(number_of_people = sum(total))
+babynames1
+```
+
+g. Five doesn't show up in any of the baby names.
+
+
+h.
+```{r}
+fourzero <- babynames1 %>%
+  filter(num=="four"|num=="zero")
+fourzero
+```
+
+i.
+```{r}
+babynames2 <- babynames %>%
+  mutate(name = str_to_lower(name)) %>%
+ filter(name %in% c("zero","one","two","three","four","five","six","seven","eight","nine"))%>%
+ group_by(name) %>%
+summarise(frequency = sum(n))
+babynames2
+```
+
+
+j. 
+```{r}
+no_vow <- babynames %>%
+  distinct(name) %>%
+  mutate(name = str_to_lower(name))%>%
+filter(!str_detect(name, pattern="[aeiouy]"))
+no_vow
+```
+
+### Problem 2: Tidying the "Call of the Wild"
+```{r}
+library(gutenbergr)
+wild <- gutenberg_download(215)
+```
+
+a.
+```{r}
+wild_words <- wild %>%
+  unnest_tokens(output = word, input = text,
+                token = "words")
+```
+
+
+b. 
+```{r}
+wild_words1 <- wild_words %>%
+  anti_join(stop_words, by = "word")%>%
+  count(word, sort = TRUE)%>%
+  top_n(20)
+wild_words1
+```
+
+c. 
+```{r}
+#bar graph
+ pal <- magma(n = 30, direction = -1)
+wild_words1 %>%
+   mutate(word = fct_reorder(word, n)) %>%
+  ggplot(mapping = aes(x = word, y = n)) +
+  geom_col(fill="purple") + coord_flip() + theme_light()
+#word cloud
+wild_words1 %>%
+  with(wordcloud(word, n, colors = pal,
+          min.freq = 10, random.order = FALSE,
+          scale = c(10, 1)))
+```
+
+
+d. 
+```{r}
+#nrc
+nrc <- get_sentiments("nrc")
+wild_words2 <- inner_join(wild_words, nrc, by = "word") %>%
+  count(sentiment) %>%
+  mutate(prop = n/sum(n))
+
+wild_words2 %>%
+  ggplot(aes(fill = sentiment, y = prop, x  = sentiment)) +
+  geom_col(position = "dodge") + coord_flip()
+
+#bing
+bing <- get_sentiments("bing")
+wild_words3 <- inner_join(wild_words, bing, by = "word") %>%
+  count(sentiment) %>%
+  mutate(prop = n/sum(n))
+wild_words3 %>% ggplot(aes(x = sentiment, y = prop, fill  = sentiment)) +
+  geom_col()
+
+#afinn
+afinn <- get_sentiments("afinn")
+wild_words4 <- wild_words %>%
+  count(word) %>%
+  inner_join(afinn, by = "word") %>%
+  summarize(average_value = (sum(n*value))/sum(n))
+wild_words4
+```
+Based on all the plots and the average afinn value, we see that the sentiment of the text is mostly negative. 
+
+
+e.
+```{r}
+affin_words <- wild_words %>%
+  count(word) %>%
+  inner_join(afinn, by = "word") %>%
+  group_by(word) %>%
+  summarize(afinn_value =sum(n*value)) %>% 
+  arrange(desc(afinn_value))
+affin_words
+```
+From d, the average sentiment score of the text using `afinn` is -0.3222465. Positive words like great, like, good, love, and strength had the biggest impact. Negative words like no, dead, fire, cried, and lost had the biggest impact.
+
+
+f. 
+```{r}
+wild_no <- wild %>%
+   filter(str_detect(text, "\\bno\\b"))
+```
+
+g. 
+The use of "no" is not necessarily negative. We see that phrases like no one, no matter, no opposing etc. with no negative connotation have been counted as negative sentiment just because "no" is present. The use of no in the text seems to be very contextual and not necessarily negative. 
+
+h.
+```{r}
+wild_time <- wild %>%
+  mutate(line = row_number(), index = floor(line/45) + 1)  %>%
+  unnest_tokens(output = word, input = text,
+                token = "words") %>%
+   inner_join(bing, by = "word") %>%
+  group_by(index) %>%
+  count(sentiment)  %>%
+pivot_wider(names_from = sentiment, values_from = n)  %>%
+  mutate(sentiment = positive-negative)
+```
+
+
+i.Plot of the sentiment scores as the text progresses:
+```{r}
+wild_time  %>%
+ ggplot(aes(x = index, y = sentiment)) +
+  geom_col(fill="purple") + coord_flip()
+```
+
+
+j.   
+```{r}
+#index value, i=10
+wild %>%
+  mutate(line = row_number(), index = floor(line/10) + 1)  %>%
+  unnest_tokens(output = word, input = text,
+                token = "words") %>%
+   inner_join(bing, by = "word") %>%
+  group_by(index) %>%
+  count(sentiment)  %>%
+pivot_wider(names_from = sentiment, values_from = n)  %>%
+  mutate(sentiment = positive-negative) %>%
+  ggplot(mapping = aes(x = index, y = sentiment)) +
+  geom_col(fill="purple") + 
+  coord_flip()
+```
+
+```{r}
+#index value, i=60
+wild %>%
+  mutate(line = row_number(), index = floor(line/60) + 1)  %>%
+  unnest_tokens(output = word, input = text,
+                token = "words") %>%
+   inner_join(bing, by = "word") %>%
+  group_by(index) %>%
+  count(sentiment)  %>%
+pivot_wider(names_from = sentiment, values_from = n)  %>%
+  mutate(sentiment = positive-negative) %>%
+  ggplot(mapping = aes(x = index, y = sentiment)) +
+  geom_col(fill="purple") + 
+  coord_flip()
+```
+On choosing an index arbritarily, we might run into an error of missing some nuances within the chunks. So even on changing indexes to 10 and 60,  the plots convey a similar story about the overal sentiment of the text. We see that the text is mostly negative with short verses of positive. 
+
+k. The text tokenized by bigrams.  
+```{r}
+wild_ngram <- wild %>%
+  unnest_tokens(output = ngram, input = text,
+                token = "ngrams", n = 2)
+wild_ngram
+```
+
+
+l.
+```{r}
+wild_ngram1 <- wild_ngram %>%
+  count(ngram, sort = TRUE)
+wild_ngram1
+```
+We see that stop words are still a problem. 
+
+m. 
+```{r}
+wild_ngram2 <- wild_ngram %>%
+  separate(ngram, c("word1", "word2"), sep = " ") %>%
+ anti_join(stop_words, by = c("word1" = "word")) %>%
+ anti_join(stop_words, by = c("word2" = "word")) %>%
+   unite(ngram, word1, word2, sep = " ") 
+```
+
+n.
+```{r}
+wild_ngram2 <- wild_ngram2 %>% 
+  count(ngram, sort = TRUE)
+wild_ngram2
+```
+
+
+### Problem 3: Your Sentiment Analysis
+```{r}
+library(genius)
+joni_albums <- data.frame(artist = "Joni Mitchell",
+                          album = c("Blue", "Clouds",
+                                    "Hejira",
+                                    "Shine"))
+joni <- joni_albums %>%
+  add_genius(artist, album) %>%
+  mutate(album = factor(album), album = fct_inorder(album))
+```
+
+A wordcloud:
+```{r}
+ pal <- magma(n = 30, direction = -1)
+joni  %>%
+  unnest_tokens(output = word, input = lyric,
+                token = "words") %>%
+  anti_join(stop_words, by = "word") %>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, scale = c(6, 1),
+                 colors = pal, min.freq = 10, 
+                 random.order = FALSE))
+```
+
+A graphic that presents the tf_idf's for the important words in each albums:  
+```{r}
+joni_tidy <- joni %>%
+  unnest_tokens(output = word, input = lyric, token = "words") %>%
+   anti_join(stop_words, by = "word") %>%
+  count(album, word, sort = TRUE) %>%
+  bind_tf_idf(word, album, n) %>%
+  arrange(desc(tf_idf))
+joni_tidy %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>%
+  group_by(album) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  ggplot(aes(x = word, y = tf_idf, fill = album)) + 
+  geom_col(show.legend = FALSE) + coord_flip() +
+  facet_wrap(~album, ncol = 3, scales = "free")+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+```
+
+A graphic that compares the sentiments of the texts/albums in some way. 
+```{r}
+joni_tidy %>%
+  inner_join(nrc, by = "word") %>%
+  group_by(album, sentiment) %>%
+  summarize(n = sum(n)) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(aes(fill = album, y = prop, x  = sentiment)) +
+  geom_col(position = "dodge") + coord_flip()
+```
+
+Key Takeaways: Joni Mitchell is LOVE and that is what the sentiment in her albums and songs tell us. From the word cloud we see that she uses a lot of positive words like love bright, shiny, heart, sweet etc. in her songs. From the sentiment bar graph, we see that there is more positive sentiment throughout her albums. It is interesting from the plot that the sentiment in her songs are almost normally distributed, high overall positive sentiment in all four albums and a fair amount of other sentiments. This analysis made me vibe with her positive sentiment even more. 
+
+
+
+

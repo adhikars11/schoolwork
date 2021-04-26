@@ -1,0 +1,111 @@
+---
+title: "Problem Set 1"
+author: "Shisham Adhikari"
+date: "Math 345"
+output:
+  pdf_document: default
+urlcolor: blue
+---
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+# Due: Before class on Thursday, 02/04/2021
+Collaborators: Grayson White
+
+# Goals of this lab
+1. Review R!
+1. Ease our way back into the semester.
+1. Hopefully learn at least one new thing.
+
+## Problem 1: Something New
+Let's start by (hopefully) learning something new. Go online and look up the pacman package. Why is it called pacman? Why might this package be helpful?
+
+As pacman in the videogame eats the dots inside an enclosed maze to get stronger, pacman package combines/eats the functionality of base library related functions to give more intuitively named functions, so it is called pacman.
+
+This package might be helpful to:
+
+- provide intuitively named functions for the base functions
+- integrate the functionality of the multiple functions to perform multiple tasks in single command
+- increase workflow by reducing code and time recalling obscure functions and 
+- substitute for the functions library() and require()
+
+
+a) Load a few of your favorite packages using p_load().
+```{r}
+library(pacman)
+p_load(tidyverse)
+p_load(lubridate)
+p_load(wordcloud)
+p_load(ggmap)
+```
+
+## Problem 2: List of my Favorite Things
+Here's a list:
+```{r}
+# here's a list
+l <- list(1:4, "a", 47, "zucchini the dog", NA)
+```
+a) Return a boolean vector that is true when our object is a character class.
+```{r}
+is.character(l)
+```
+
+b) Write code that returns the locations in our list of the character class data.
+```{r}
+loc <- rep(NA, length(l))
+for(i in 1:length(l)){
+  loc[i] <- is.character(l[[i]])
+}
+which(loc %in% TRUE)
+```
+
+c) Find the sum of all the numbers (including integers) in the list l.
+```{r}
+sum(as.numeric(unlist(l)), na.rm=TRUE)
+```
+## Problem 3: Fun(ctions) with Matrices
+```{r}
+# define the matrix
+m <- matrix(data = 1:20, nrow = 4)
+m
+```
+a) Switch columns 1 and 3. Then switch rows 1 and 2. Print the results.
+```{r}
+m[, c(1,3)]  <- m[ , c(3,1)]
+m[c(1,2), ]  <- m[c(2,1) , ]
+m
+```
+b) Write a nice function that takes 4 inputs: a matrix, two integers, and the text "row" or "column". Write a function that switches the rows or columns, depending on the input, corresponding to the two integers. For example, if the input was ``matrix_swap(m, 1, 3, "column")``, the function would return the matrix m with columns 1 and 3 switched, as we did in part (a). Make sure your function responds appropriately when the inputs are nonsensical; for example, if a user asks to swap a column that does not exist in the supplied matrix. Test it and print the results for a at least 3 new matrices that you create (one row swap, one column swap, and one nonsensical case).
+```{r}
+# Write your function here
+nice_fun <- function(mat, x, y, z="row"|"column") {
+  if(x>nrow(mat)|y>ncol(mat)){
+      print("Nonsensical inputs, check the values of x and y")
+  } else {
+  if (z=="row") {
+    mat[c(x,y), ]  <- mat[c(y,x) , ]
+    print(mat)
+  } else {
+  mat[, c(x,y)]  <- mat[ , c(y,x)]
+  print(mat)
+  }
+  }
+}
+```
+
+```{r}
+# Test your function here
+m
+nice_fun(m, 1,2,"row")
+nice_fun(m, 1,2,"column")
+nice_fun(m, 10,2,"row")
+```
+
+c) Plot one of the matrices as a raster using your preferred method. 
+```{r, fig.height=3.5, fig.width=4}
+# Plot code here
+library(raster)
+r=raster(m)
+plot(r)
+```

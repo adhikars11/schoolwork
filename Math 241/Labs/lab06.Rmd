@@ -1,0 +1,267 @@
+---
+title: "Lab 6"
+author: "Shisham Adhikari"
+date: "Math 241, Week 9"
+output: pdf_document
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(httr)
+library(glue)
+```
+
+### Problem 1: Loop De Loop
+a.  
+```{r}
+omdb_key <- "7596aa15"
+```
+
+b. 
+```{r, eval = TRUE}
+
+office_space_pull <- GET(glue("http://www.omdbapi.com/?i=tt3896198&apikey={omdb_key}"),
+                   query = list(t = "Office Space",
+                                y = 1999,
+                                plot = "short",
+                                r = "json"))
+office_space <- content(office_space_pull, as = "parsed", type = "application/json")
+```
+
+c.
+```{r, eval=TRUE}
+grab_movie <- function(title, year, omdb_key) {
+  movie_pull <- GET(glue("http://www.omdbapi.com/?i=tt3896198&apikey={omdb_key}"),
+                    query = list(t = title,
+                                 y = year,
+                                  plot = "short",
+                                 r = "json"))
+  return(content(movie_pull, as = "parsed", type = "application/json"))
+}
+joker <- grab_movie("Joker", 2019, "7596aa15")
+```
+
+d. 
+```{r}
+# 2019 Movies I want to see
+titles_2019 <- c("Parasite", "Joker", "Little Women")
+three_movies <- map(.x=titles_2019,.f=grab_movie, year=2019, omdb_key="7596aa15")
+```
+
+e. 
+```{r}
+# Fill in, 
+title <- c("Frozen", "Us", "Lady Bird", "Black Panther", "The Wizard of Oz", "Moonlight", "Get Out", "Gravity", "Up", "The Dark Knight")
+# Fill in corresponding years for each movie
+year <- c(2013, 2019, 2017, 2018, 1939, 2016, 2017, 2013, 2009, 2008)
+movies <- map2(title, year, grab_movie, omdb_key="7596aa15")
+```
+
+f. 
+```{r}
+movies_dataframe <- map_dfr(movies, `[`, c("Title", "Year", "Rated", "Runtime", "Genre", "imdbRating", "imdbVotes"))
+```
+
+
+g. 
+```{r}
+movies_plot <- movies_dataframe %>%
+ mutate(imdbRating = parse_number(imdbRating), Runtime = parse_number(Runtime))
+ggplot(movies_plot, aes(x= Runtime , y=imdbRating, color = Title)) +
+  geom_point() + theme_light()
+```
+I wanted to look at the runtime and imdbratings for the movies and see if there is any relation. From the graph, most of the movies I want to watch are around 100minutes long and are similarly rated between 7.25 and 8.25. The two movies which are relatively longer, Us and Black Panther, are rated relatively lower. This indicates maybe longer movies aren't liked as much and are rated lower but there is the exception, The Dark Knight. It is the longest and the most highly rated of all, can't blame it, the cinematography is just spectacular.I was surprised to see US being rated the lowest because I personally really liked the movie and had read mostly good revies.
+
+### Problem 2: Are Volcanic Eruptions Increasing?
+```{r}
+Eruptions <- read_csv("/home/courses/math241s20/Data/GVP_Eruption_Results.csv")
+```
+
+a.
+```{r}
+confirmed_eruptions <- Eruptions %>%
+  filter(EruptionCategory == "Confirmed Eruption")
+```
+There are 9756 observations. Each rows represent information about each confirmed eruptions. 
+
+
+b. If we want to plot year versus the number of eruptions that started that year, we want each row to represent year and the respective count for the confirmed eruptions in the given year.We would want to include in StartYear and count (of total eruptions that started that year) in that dataset.
+
+c.
+```{r}
+graph <- confirmed_eruptions %>%
+  group_by(StartYear) %>%
+  summarise(count=n())
+  ggplot(graph, aes(x = StartYear, y=count)) +
+  geom_point(color="purple") + 
+      xlim(-1060, 2016) + theme_classic(base_size = 12)
+```
+Comments: We see that the number of eruptions that started thorughout most time before late 1000s was all spread out without any noticable trend but the eruptions started increasing steeply around late 1000s. The eruptions is increasing continously throughout 2000s with a sharp dip at one point at the end but that is jus because the data was downloaded that year. 
+
+d. 
+```{r}
+onwards <- graph %>%
+  filter(StartYear >= 1900)
+ ggplot(onwards, aes(x = StartYear, y = count)) +
+   geom_line(color="purple") +
+geom_smooth(method = "lm", se=FALSE) + theme_classic(base_size = 12)
+```
+As the line of best fit is upwards sloping, yes in general the volcanic eruptions increasing. The sharp dip at the end just represents the year the data was downloaded. 
+
+
+ 
+e. 
+```{r}
+sam <- confirmed_eruptions %>%
+   filter(StartYear >= 1900) %>%
+  select(StartYear, VEI)  %>%
+   group_by(StartYear) %>%
+  summarise(count=n(), mean = mean(VEI))
+ggplot(sam, aes(x= StartYear , y=count, color = mean)) +
+  geom_point() +
+   scale_color_distiller()+
+  geom_smooth(method = "lm", se=FALSE) + theme_classic(base_size = 12)
+```
+
+
+f. 
+The time periods of dips are around World War I and World War II and also the great depression that might have affected documenting of eruptions. There is no documentation of the size of the confirmed eruptions (i.e. VEI = NA) during that time causing the dips. There is a sharp dip at 2016 but that is just because the data was pulled in 2016 so that dip is not really important. 
+
+From the graph, we see that the probability of detection has incresed for smaller sized eruptions over time.
+
+From above two answers, the observation/documentation varies differently across eruption size and year. The proability of detection of smaller volcanoes are not the same before and after 1960s and also both the dips were before 1960s. Because of this inconsistency, this dataset of all confirmed eruptions is not a good representation of all eruptions and hence impacts the quality of the data.
+
+g.
+```{r}
+sam1 <- confirmed_eruptions %>%
+   filter(StartYear >= 1900) %>%
+  filter(VEI >= 2) %>%
+  select(StartYear, VEI) %>%
+   group_by(StartYear) %>%
+  summarise(count=n(), mean = mean(VEI, na.rm = TRUE))
+ggplot(sam1, aes(x= StartYear , y=count, color = mean)) +
+  geom_point() +
+   scale_color_distiller("magma")+
+   geom_smooth(method = "lm", se=FALSE) + theme_classic(base_size = 12)
+```
+Based on this graph eruptions appear to be decreasing over time. 
+
+(Problem 2 maybe implying that it is not the bigger eruptions that is increasing but just the measurement technology and documentation are changing over time.)
+
+### Problem 3: Dates and Eruptions
+a. 
+```{r}
+after <- Eruptions %>%
+  filter(EndYear >= 1968)
+```
+
+
+b.
+```{r}
+after <- after %>%
+  mutate(StartDate = ymd(paste(StartYear, StartMonth, StartDay, sep = " ")),
+         EndDate = ymd(paste(EndYear, EndMonth, EndDay, sep = " ")),
+         Interval = StartDate %--% EndDate)
+```
+
+c. 
+```{r}
+parsefail <- after %>%
+  filter(is.na(StartDate))
+```
+Those dates fail to parse because they have missing start day data. This means there is not enough information for `StartDate` column and an incorporates the year, month, and day.
+
+d. 
+```{r}
+after <- after %>%
+  mutate(intdays = time_length(Interval, "days"), intyears = time_length(Interval, "years"))
+```
+
+
+e. 
+```{r}
+after %>% 
+  ggplot(aes(x=factor(VEI), y=intyears))+
+  geom_boxplot() +
+    stat_summary(fun.y=mean, colour="red",
+               geom="point",position=position_dodge(width=0.75)) +
+  stat_summary(fun.y=mean, colour="red", aes(group=1),
+               geom="line", lwd=1, lty=1) + ylim(0,10)
+```
+From the graph, as the VEI increases, the length of eruption increases. Even though there seems to be a decline towards the end, it is not significant because there is just one volcano with VEI=6 and VEI=NA doesn't tell anything about the relationship. Thus, it is safe to say that there is a positive relationship between the VEI and the length of eruption.
+
+f. 
+```{r}
+tenvolc <- after %>%
+  arrange(desc(intdays)) %>%
+  top_n(10) %>%
+   mutate(total_time = time_length(Interval, "years")) %>%
+  select(VolcanoName, total_time, Interval)
+```
+The problem is that the volcanoes that are still erupting have EndDates. Volcanoes like "Santa Maria", "Dukono", "Aira", "Semeru", "Kilauea", "Sheveluch" with EndDate on Spring 2016 were (some of them still are) still erupting while the data was downloaded in the spring of 2016 but they have EndDates. 
+
+g. 
+```{r}
+finished <- after %>%
+  filter(EndYear != "2016", EndMonth != 3, EndDay != 1) %>%
+ggplot(aes(x = factor(VEI), y=intyears))+
+ geom_boxplot()+
+    stat_summary(fun.y=mean, colour="red",
+               geom="point",position=position_dodge(width=0.75)) +
+  stat_summary(fun.y=mean, colour="red", aes(group=1),
+               geom="line", lwd=1, lty=1) + ylim(0,10)
+print(finished)
+```
+On removing the volcanoes (the one with the EndDate March 1st) that are still erupting, the graph doesn't change drastically and there still is a positive relationship between the VEI and the length of eruption.This makes sense because we removed two volcanoes of 1721 total volcanoes so the effect is not as drastic. A very subtle change we can see is that the columns relative sizes changed slightly. In the graph, the mean length of the eruptions with VEI=3 has gone up a little on just including only volcanoes that have finished erupting.
+
+
+### Problem 4: Food Consumption Comparisons
+```{r}
+food_consumption <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-02-18/food_consumption.csv')
+```
+
+a.
+```{r}
+plot2 <- food_consumption %>%
+  filter(country %in% c("USA","France","Nepal"))  %>%
+ mutate(country = fct_infreq(country)) 
+plot3 <- plot2 %>% ggplot(aes(x=country, y=consumption, fill = food_category))+
+  geom_bar(stat = "identity", position = position_dodge(), alpha = 0.75) + 
+  theme_minimal()
+print(plot3)
+```
+Comments: We see that France and US have pretty similar food consumption. Both countries consume a lot of Milk-Inc. cheese and Wheat Products, which is not as surprising. I was surprised of the fewer consumtion of individual meat products in all three countries, especially France and USA, but again putting all them together in a single category of meat products will change things up. In case of Nepal, I expected Rice to be the most consumed food and that is indeed true. It is surprising that the consumption of beef is higher than other meat products, it doesn't sound reasonable to me as most people in Nepal are Hindus and they don't eat beef. 
+
+b. 
+```{r}
+food_consumption <- food_consumption %>%
+  mutate(food_category = factor(food_category)) %>% mutate(food_categories1 = fct_collapse(food_category, 
+meat = c("Beef","Fish", "Lamb & Goat", "Pork", "Poultry"),
+nonmeat_animal_Products = c("Eggs", "Milk - inc. cheese", "Nuts inc. Peanut Butter"),plant_products = c("Wheat and Wheat Products", "Rice", "Soybeans"))) 
+subcatg <- food_consumption %>%
+  filter(country %in% c("USA","China","Russia")) %>%
+  ggplot(aes(x=country, y=consumption, fill = food_categories1))+
+  geom_bar(stat = "identity", alpha = 0.75) + 
+  theme_minimal()
+print(subcatg)
+```
+Comments: In China, plant products are the most consumed food and meat is the least consumed food which is not obvious but makes sense taking in consideration all the rural parts of China. Both in Russia and USA, non-meat animal products is the most consumed food which  might be because dairy products and eggs fall in this category. In the US, the plan products is the least consumed food and in Russia, it's meat which is not what I would have assumed. It's also worth noting that China's overall food consumption is less than both Russia and the US. 
+
+c. A question of these data: Compare CO2 emission of the USA with five other countries based on different categories of food cosumption. 
+```{r}
+consemis <- food_consumption %>%
+  mutate(food_categories1 = fct_reorder(food_categories1, co2_emmission)) %>%
+  filter(country %in% c("USA","India","Peru", "China", "Italy"))  %>%
+  ggplot(aes(x=country, y=co2_emmission, fill=food_categories1))+
+  geom_bar(stat = "identity", alpha = 0.75) + 
+  theme_minimal()
+print(consemis)
+```
+Comments:We see that the USA emits the most CO2 of all the five countries, meat being the main culprit of all the food categories. It's surprising that despite havign two largest population in the world, China and India have lesser CO2 emission that both Italy and the US, it might be because of the overall food consumption. For most countries of all food categories, meat emits the most CO2 except India where it is non-meat animal products. Plant products seem to have comparatively less CO2 emission for almost all countries. So the main conclusion from this graph is we should reduce meat production/consumtion to fight the climate change problem. 

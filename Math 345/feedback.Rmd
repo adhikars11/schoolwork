@@ -1,0 +1,34 @@
+---
+title: "Problem Set Feedback"
+author: "Shisham Adhikari"
+date: "2/11/2021"
+output: pdf_document
+---
+## Feedback For: **Grisha**
+## Problem Set Number: **PS 6**
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Feedback Guidlines
+1. General Feedback on the Problem Set.
+
+- Overall a good PS! I really like how you comment very thoroughly. 
+
+2. Problems where the approach was interesting, well done, or novel (provide details):
+
+- I really like your use of lag of price as the dependent variable, it makes more sense.  
+- I like how you are very thorough about your collaborators and sources. 
+
+3. Problems where the approach was difficult to follow, could be cleaner, or was not well commented (provide details):
+
+- For problem 2, I think the plots for p-values should be raster density map like the coefficients one. Also, adjusting the plot size might make it easier to compare them. 
+
+4. Problems where you came to a different solution, and an explanation of why the solutions are different:
+
+- For problem 1, my code was slightly different and my graph had slightly more variation. Before I ran the regression, I changed the CRS as crs(hd) <- "+proj=longlat +datum=NAD83" and trnsformed the data hdt <- spTransform(hd, alb). Maybe that might be the reason why our answers vary. 
+- Same for the raster structure in problem 1, maybe because I transform, my plots have slightly wide range of colors. 
+- I used par(mfrow=c(2,2)) for number 2 to combine the individual plots; it saved some space and was easier to compare. 
+
+
+
+

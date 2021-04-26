@@ -1,0 +1,381 @@
+---
+title: "MATH 392 Mathematical Statistics"
+subtitle: "Final Exam"
+author: "Shisham Adhikari"
+date: "May 12, 2020"
+output: pdf_document
+---
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(maxLik)
+```
+
+###Question 1: 6:00PM 12th May - 3:00PM 13th May
+
+## Poisson Regression
+Poisson regression is a form of Generalized Linear Model often used to model count data, $Y$, as a function of a set of predictors $X$ (an $n$ by $p + 1$ matrix). The conditional distribution of the response is $Y \, | \, X \sim \textrm{Poisson}(\lambda = e^{X\beta})$. For reference, if $Y$ is Poisson, $P(Y  = y) = \frac{\lambda^y e^{-\lambda}}{y!}$ for $\lambda > 0$ and $y$ on the non-negative integers. 
+
+###Question 2:
+*GLM*. Every generalized linear model consists of three components: a distribution for the response, the linear predictor, and a link function to map the linear predictor to the expected value of the response. In the case of Poisson regression, the three components are:
+
+####Three components of the Poisson Regression:
+\begin{itemize}
+  \item A distribution for the response:  $Y|X \sim Poisson(\lambda=e^{X\beta})$ \\
+  \item The linear predictor: $\beta_0+\beta_1X$ \\
+  \item A link function: A simple linear function $E(Y|X)=\lambda=\beta_0+\beta_1X$ does not work in case of the poisson model because the poisson parameter can only range from 0 to $\infty$ and the linear function can give a negative value. So we need our link function to transform the mean,$E(Y|X)$ in $(0,\infty)$to the scale of the simple linear predictor in $(-\infty,+\infty)$. An easy way to do it would be to take log of $E(Y|X)$ instead of just $E(Y|X)$ so the equation becomes $log(E(Y|X))=log(\lambda)=\beta_0+\beta_1X \implies \lambda=e^{\beta_0+\beta_1X}$. If so, the link function is a log-link ie. $g(\lambda)=log\lambda$.
+\end{itemize}
+
+## An example
+Every semester in Math 141, students collect a sample of data from the thesis tower that records the age of the thesis and the number of times that it has been checked out. We can read that data in with the following code.
+
+```{r eval = TRUE}
+theses <- read.csv("https://www.dropbox.com/s/88x6jjv5ehekonk/theses.csv?dl=1")
+```
+
+###Question 3: *Plotting the data* 
+Constructing a scatter plot of the relationship between these two variables:
+
+```{r, fig.height=3, fig.width=4}
+ggplot(theses, aes(x=age, y=checkouts))+
+  geom_jitter()+
+  theme_bw()
+```
+
+## I. Frequentist Model
+###Question 4: *Parameter estimation*
+For our first pass, we will fit this model (i.e. estimate $\beta_0$ and $\beta_1$) using maximum likelihood. We will start with an analytical approach to this estimation. If we can't find a closed-form solution, we will solve by writing the likelihood (or log-liklihood) as a function to be optimized by the `maxLik()` function in the `maxLik` library. Finally, we will check our solutions against the built-in function for estimating Poisson regression.
+
+We know $Y$ is Poisson, $P(Y  = y) = \frac{\lambda^y e^{-\lambda}}{y!}$ for $\lambda > 0$ and $y$ on the non-negative integers. Since $Y_1,\cdots,Y_n$ are all independent poisson r.vs, we can multiply the poisson pmfs to get the likelihood function, i.e. \\
+$$lik(\beta_0,\beta_1)=\prod_{i=1}^n \frac{\lambda_i^{y_i}\cdot e^{-\lambda_i}}{y_i!}$$, where $\lambda = e^{X\beta}$. The log-likelihood function would be:
+
+\begin{align*}
+l(\beta_0,\beta_1) &= \sum_{i=1}^n y_i \cdot log(\lambda_i)-\lambda_i-log{y_i!} \\
+ &= \sum_{i=1}^n y_i \cdot (log(e^{\beta_0+x_i\beta_1}))- e^{\beta_0+x_i\beta_1}-log{y_i!} \\
+ &= \sum_{i=1}^n y_i \cdot (\beta_0+x_i\beta_1) -e^{\beta_0+x_i\beta_1} - log{y_i!}
+\end{align*}
+
+Analytically, we can maximize the log-likelihood function to get MLES, by solving for $\frac{dl(\beta|Y,X)}{\beta}=0$ but we can't find a closed-form solution for this, so we need to use our optimization, aka `maxLik()` function:
+
+```{r}
+#specifying likelihood function
+l_poisson <- function(n, Y, X, B){
+   b_0 <- B[1]
+  b_1 <- B[2]
+    sum((Y * (b_0 + b_1 * X)) - exp(b_0 + b_1 * X) - log(factorial(Y))) 
+#Since log(factorial(Y)) doesn't have any B term, we can drop it,
+}
+l_poisson <- function(n, Y, X, B){
+   b_0 <- B[1]
+  b_1 <- B[2]
+     sum((Y * (b_0 + b_1 * X)) - exp(b_0 + b_1 * X))
+}
+B_mle <- maxLik(l_poisson, start=c(0,0), X = theses$age, Y=theses$checkouts, n=85)
+B_mle
+```
+
+The built-in function for estimating Poisson regression is:
+```{r}
+m1 <- glm(checkouts ~ age, data = theses, family = "poisson")
+m1
+```
+Comparing the two results, the estimates of $\beta_0$ and $\beta_1$ using MLEs are 0.07121037 and 0.01914517 respectively and using glm() are 0.07121 and 0.01915 respectively. We see that they are equal to eachother (just one more round off than the other). 
+
+
+###Question 5: *Plotting the model*
+Modifying the plot above to include a line showing the value of our regression function, $\hat{E}(Y|X)$:
+```{r, fig.height=3, fig.width=4}
+funct <- function(x){
+exp(0.07121037 +  0.01914517 * x) #b0 and b1 are MLEs from maxLik()
+}
+ggplot(theses, aes(x=age, y=checkouts))+geom_jitter()+
+  stat_function(fun=funct, color="red") + 
+  stat_smooth(method="glm", se=FALSE,
+   method.args = list(family="poisson"),
+   linetype="dashed")+
+   theme_bw() 
+```
+
+We can see that checkouts increase with the age of a thesis (which sure would make sense) but that the effect is slight.
+
+###Question 6: *Theoretical CI*
+Now we are constructing a 95% confidence interval for $\beta_1$ using the standard error estimate that appears in the `summary()` of the model object that resulted from our call to `glm()`. 
+```{r}
+s <- summary(glm(checkouts ~ age, data = theses, family = "poisson")) #se_b1=0.005112
+  n <- 85
+  c <- 1.96
+  b1 <- 0.019145  
+  se <- 0.005112
+  #CI
+  lb <- b1 - c*se
+  ub <- b1 + c*se
+  ci <- c(lb,ub)
+  ci
+```
+Central Limit Theorem(CLT) states that for a population with mean, in this case $\beta_1$ and standard deviation, in this case the standard error estimate from glm(), for lare enough random samples, the sample means will follow approximately a normal distribution. So, we can use quantiles (q1 and q2) for a normal distribution to find the confidence interval. This is the theoritical justification of using this interval.
+
+###Question 7:*Bootstrap CI*
+We can use a bootstrap to find an alternative CI for $\beta_1$. 
+```{r}
+B <-10000
+n <- 85
+b <- matrix(0, B, 2)
+for (it in 1:B) {
+    i <- sample(n, n, replace = TRUE)
+    boot <- glm(checkouts ~ age, data = theses[i,], family = "poisson")
+    b[it, ] <- coef(boot)
+}
+sebeta <- apply(b, 2, sd) #0.2275418 0.0090470
+  lb <- 0.019145 - 1.96*sebeta[2]
+  ub <- 0.019145 + 1.96*sebeta[2]
+  ci <- c(lb,ub)
+  ci
+```
+Comparing the two intervals, the bootstrap CI is (0.001207627 0.037082373) which has a higher range than the theoritical 95% CI calculated earlier, (0.00912548 0.02916452). This is because the standard error estimate is higher for the bootstrap CI. 
+  For the CI drawn from the large enough B and the estimate of $\beta_1$, we can be convinced that this parameter is positive, however, if we have a lower the value of B, the CI has negative values and the coefficients could be negative. 
+
+## II. Penalized Model
+###Question 8: *Penalized vs. unpenalized* 
+We talked about this in Econometrics, when there is a problem of severe multicollinearity, it is useful to add a penalty term to our loss/likelihood function. Also, when n is large enough so that higher variance in MLE is a probelm, it is useful. In general, penalized model trades off between bias and variance in the unpenalized model. An estimate based on penalized maximum likelihood is  biased for any $\lambda \ne 0$ and as $\lambda \rightarrow \infty$, $Var(\hat{\beta}_{penalized}) \rightarrow 0$, whereas, an estimate based on maximum likelihood has higher variance and lower bias than the penalized ones. 
+
+Admittedly, our n is not large enough, so we are not actually in that scenario in our example, but anyhow we are going to see how the penalized model compares. 
+
+###Question 9: *Plotting two models* 
+While modifying our likelihood function to include a penalty term, it is to note that we don't want/need to penalize the intercept term, so our penalty term will just have slope estimate. So for simplicity, we chose our penalty term to be, $\lambda\beta_1$. Just to see the changes, we decided to run a model with penalty term $\lambda\beta_1^2$. We chose a small positive number, 1 to be our $\lambda$. We experimented changing the values of the $\lambda$ but there were no significant changes in the results, so we stick to $\lambda=1$ for our penalized model. 
+```{r, fig.height=3, fig.width=4}
+lambda <- 0.1
+#penalized term = lambda*beta_1
+penpois <- function(n, Y, X, B){
+   b_0 <- B[1]
+  b_1 <- B[2]
+     sum((Y * (b_0 + b_1 * X)) - exp(b_0 + b_1 * X)) + lambda*b_1 #lambda*b_1 is the ridge 
+}
+Bnew <- maxLik(penpois, start=c(0,0), X = theses$age, Y=theses$checkouts, n=85)
+Bnew
+functb1 <- function(x){
+exp(0.07049737 +  0.01917129  * x)  #b_0 and b_1 from the maxlik()
+}
+
+#penalized term = lambda*beta_1^2
+penalized_poisson <- function(n, Y, X, B){
+   b_0 <- B[1]
+  b_1 <- B[2]
+     sum((Y * (b_0 + b_1 * X)) - exp(b_0 + b_1 * X)) + lambda*b_1^2 #lambda*b_1^2 is the ridge 
+}
+Bneww <- maxLik(penalized_poisson, start=c(0,0), X = theses$age, Y=theses$checkouts, n=85)
+Bneww 
+functb12 <- function(x){
+exp(0.07118307 +   0.01914617 * x)  #b_0 and b_1 from the maxlik()
+}
+```
+On re-running the optimization to get an new estimate, we found $\beta_1$ to be ~0.01914 which is identical to the estimate from the unpenalized model.Now, plotting the new model alongside the existing unpenalized model on a scatterplot of the data.
+```{r, fig.height=3, fig.width=4}
+ggplot(theses, aes(x=age, y=checkouts))+
+  geom_jitter()+
+  stat_function(fun=funct, color="red") + #unpenalized model
+  stat_function(fun=functb1, color="blue") + #penalty = lambda*beta_1
+  stat_function(fun=functb12, color="green", linetype="dashed")+ #penalty=lambda*beta_1^2
+  theme_bw() 
+```
+
+We see that all the models give pretty much the same results. 
+
+## III. Bayesian Model
+###Question 10: *Formulating priors*
+Next, we are modeling this data to include prior knowledge about the values of the parameters, $\beta_0$ and $\beta_1$. There is no conjugate prior for Poisson regression, so we're to formulate our own priors. We have, $Y \, | \, X \sim \textrm{Poisson}(\lambda)$, where $\lambda = e^{\beta_0+X\beta_1}$ and the log-likelihood function for the poisson regression model is: $$L(\beta_0,\beta_1|Y,X)=\sum_{i=1}^n y_i \cdot (\beta_0+x_i\beta_1) -e^{\beta_0+x_i\beta_1} - log{y_i!}$$
+
+####Now, 
+
+Let the required priors of both $\beta_0$ and $\beta_1$ be normal distribution i.e. 
+$$\beta_0 \sim N(0, 0.018) \implies \pi(\beta_0)=\frac{1}{\sqrt{2\pi(0.018)}}e^{\left(\frac{-\beta_0^2}{2(0.018)}\right)}$$ 
+and, 
+$$\beta_1 \sim N(0, 0.0021) \implies \pi(\beta_1)=\frac{1}{\sqrt{2\pi(0.0021)}}e^{\left(\frac{-\beta_1^2}{2(0.0021)}\right)}$$
+
+###Question 11: *Writing down the posterior distribution*
+Based on the likelihood $L(\beta_0,\beta_1|Y,X)$ and the priors of the parameters, the posterior distribution becomes:
+\begin{align*}
+p(\beta_0,\beta_1|Y,X) &\propto L(\beta_0,\beta_1|Y,X) \cdot \pi(\beta_0) \cdot \pi(\beta_1) \\
+&\propto \left(\prod_{i=1}^n \frac{\lambda_i^{y_i}\cdot e^{-\lambda_i}}{y_i!}\right) \cdot \left(\frac{1}{\sqrt{2\pi(0.018)}}e^{(\frac{-\beta_0^2}{2(0.018)})}\right) \cdot
+\left(\frac{1}{\sqrt{2\pi(0.0021)}}e^{(\frac{-\beta_1^2}{2(0.0021)})}\right)
+\end{align*}
+ 
+We donot need to simplify it further because we will be using the Metropolis Algorithm. Now, constructing three corresponding R functions, one for the prior, one for the likelihood, and one for the posterior:
+```{r}
+#Given Data
+n <- 85
+y <- theses$checkouts
+x <- theses$age
+X <- model.matrix(data = theses, checkouts ~ age)
+#betaestimates
+betaest <- solve(t(X) %*% X) %*% t(X) %*% y 
+
+# The Likelihood 
+likelihood <- function(beta) {
+     b_0 <- beta[1]
+  b_1 <- beta[2]
+ loglik <- sum(dpois(y,b_0 + b_1*x, log=T))
+}
+# The Prior
+prior <- function(beta) {
+   b_0 <- beta[1]
+  b_1 <- beta[2]
+  b0_prior <- dnorm(b_0, sd = 0.018, log = T)
+    b1_prior <- dnorm(b_1, sd = 0.0021, log = T)
+     b0_prior + b1_prior
+  
+}
+# The Posterior
+posterior <- function(beta) {
+   likelihood(beta) + prior(beta)
+}
+```
+
+###Question 12: *MCMC via Metropolis*.
+Implementing the Metropolis algorithm to draw at least 10,000 samples from the posterior distribution:
+```{r}
+set.seed(497)
+it <- 10000
+chain <- matrix(rep(NA, (it + 1) * 2), ncol = 2)
+chain[1, ] <- c(0,0)
+colnames(chain) <- c("beta0", "beta1")
+for (i in 1:it){
+   proposal <- rnorm(2, mean = chain[i, ], 
+                    sd = 0.0036)
+  proposal[proposal<=0] <- 1e-10
+  p_move <- exp(posterior(proposal) - posterior(chain[i, ]))
+  if (runif(1) < p_move) {
+    chain[i + 1, ] <- proposal
+  } else {
+    chain[i + 1, ] <- chain[i, ]
+  }
+}
+chain_df <- as.data.frame(chain)
+```
+\begin{itemize}
+\item  Our proposal distribution should be symmetric and based on the existing chain. So we used the normal distribution with means equal to the values in the chain and small sd=0.0036 to be our proposal distribution.
+\end{itemize}
+```{r echo = FALSE, fig.height =5, fig.width=6}
+  df <- chain_df %>%
+    mutate(index = 1:(it+1))
+  
+# Trace plots
+  p1 <- df %>% 
+  ggplot(aes(x = beta0, y = index)) +
+  geom_path(col = "steelblue") +
+  theme_bw() +
+  labs(x = expression(beta0))
+p2 <- df %>% 
+  ggplot(aes(x = beta1, y = index)) +
+  geom_path(col = "steelblue") +
+  theme_bw() +
+  labs(x = expression(beta1))
+# Burn-in period?
+g1 <- df %>%
+ slice(1:200) %>% 
+  ggplot(aes(x = beta0, y = index)) +
+  geom_path(col = "steelblue") +
+  theme_bw() +
+  labs(x = expression(beta0))
+
+g2 <- df %>%
+ slice(1:200) %>% 
+  ggplot(aes(x = beta1, y = index)) +
+  geom_path(col = "steelblue") +
+  theme_bw() +
+  labs(x = expression(beta1))
+grid.arrange(p1, p2, g1, g2, nrow = 2)
+```
+
+```{r}
+burn_in <- 1000
+acceptance <- 1 - mean(duplicated(chain[-(1:burn_in),]))
+acceptance
+```
+\begin{itemize}
+\item Our acceptance rate is 40.98434%. \\
+\item Our burn-in period was 1000. \\
+\item Yes, looking at the trace chains, it appears that the Markov chain has converged. 
+\end{itemize}
+
+###Question 13: *Visualizing the posterior* 
+Now we are using the samples from the MCMC procedures to construct plots of the joint and marginal posterior distributions as well as the joint and marginal prior distributions.
+```{r fig.height = 4, fig.width = 8}
+#Joint prior distribution of betas
+b0_prior <- rnorm(it,0,0.018)
+b1_prior <- rnorm(it,0,0.0021)
+xy <- cbind.data.frame(b0_prior,b1_prior)
+a1 <- ggplot(xy, aes(x = b0_prior, y = b1_prior)) +
+  geom_bin2d() + 
+  scale_fill_viridis_c(direction = -1) 
+#Marginal priors
+a2 <- ggplot(data.frame(x = c(-0.05, 0.05)), aes(x = x)) +
+  stat_function(fun = dnorm, args = list(sd = 0.018)) +
+  labs(y = "") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+a3 <- ggplot(data.frame(x = c(-0.01, 0.01)), aes(x = x)) +
+  stat_function(fun = dnorm, args = list(sd = 0.0021)) +
+  labs(y = "") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+#Joint posterior distribution of betas
+c1 <- ggplot(chain_df, aes(x = beta0, y = beta1)) +
+  geom_bin2d() + 
+  scale_fill_viridis_c(direction = -1) 
+
+#Marginal posteriors
+c2 <- ggplot(chain_df, aes(x = beta0)) +
+  geom_density(color = "red") 
+
+c3 <- ggplot(chain_df, aes(x = beta1)) +
+ geom_density(color = "red") 
+grid.arrange(a1, a2, a3, 
+             c1, c2, c3,
+             ncol = 3)
+```
+Based on the plots, we see that the data decreased the variance of the parameters and also the means of the paramters are closer to what we got earlier from the frequentist model. So our data definitely updated our knowledge of the parameters. 
+
+###Question 14: *Bayesian Intervals*
+Now, we are forming a 95% credible interval for $\beta_1$ by taking the 2.5% and 97.5% quatiles from the posterior distribution. Then, we will compare to the frequentist confidence intervals.
+```{r}
+#credible interval
+quantile(chain_df$beta1, c(.025, .975))
+```
+The Bayesian credible interval is (0.01653361, 0.02234488) with range ~0.0058 which is much smaller than both the bootstrap CI (0.001207627, 0.037082373) with range ~0.03 and the theoritical 95% CI (0.00912548 0.02916452) with range ~0.02. This might be because the frequentist confidence intervals are based just on the given data whereas the credible interval is based on the chosen/relevant prior distributions that is updated based on the data which decreases the variability/range of the confidence interval. 
+
+###Question 15: *Plotting all three models*
+Adding the Bayesian model to our existing plot featuring the frequentist and penalized models:
+
+####Bayesian Point Estimates
+There are several options for turning the posterior distribution of the parameters into point estimates of the coefficients. We will be using the mean here.
+```{r fig.height=3, fig.width=4}
+B0_bayes <- mean(chain_df$beta0)
+B1_bayes <- mean(chain_df$beta1)
+funct_bayes <- function(x){
+exp(B0_bayes +  B1_bayes* x) 
+}
+ggplot(theses, aes(x=age, y=checkouts))+geom_jitter()+
+  theme_bw() + stat_function(fun=funct, color="red") + stat_function(fun=functb1, color="yellow",linetype="dashed") + stat_function(fun=funct_bayes, color="darkgreen")
+```
+
+Based on the plot, the frequentist and bayesian model give the very similar estimations for the parameters $\beta_0$ and $\beta_1$ from the Poisson regression model, which also overlap with the model given by the built-in glm() function. This might be because we are working with the fixed dataset, theses. Also, the choice of the priors and posteriors for the Bayesian was made based on the information we have about the dataset and the parameters. Coming up with an appropriate bayesian model was a matter of trial and error, the selection of the priors and the proposal distribution greatly affected the results. 
+
+## IV. Reflection
+###Question 16:
+Solving the Rejection sampling from the PS. 10 was the epic memory of Math 392! To be specific, to come up with a 3-D proposal density, phew! Getting through Metropolis felt like a huge accomplishment but then having to spend literally an entire day for the rejection sampling was a lot of time and energy. Looking back, I am glad I went through that experience. I was working with Jonathan and Bijay in person and Ryan, Sam, Ali, Naomi over slack. I have always enjoyed working in groups but that experience was at whole different level. In fact that was the best part about the class, the solidarity amongst peers. That was very well reflected while solving for the Rejection Sampling. Slacking, zooming Andrew over the weekend for more than an hour, spending hours just making fun of how ridiculously hard the problem was, I think I learned to embrace difficulty and add a little touch of fun to it. Thank you Andrew and the peers for that experience!
+
+###Question 17
+Ridge regression! I think the bias-variance tradeoff is a creative idea to find a better estimator. It was really cool to see an alternate to MLEs and also learn about where the modern Statistics is heading. I think the lecture that day was really cool too! 

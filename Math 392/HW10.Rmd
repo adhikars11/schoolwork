@@ -1,0 +1,343 @@
+---
+title: "HW10"
+author: "Shisham Adhikari"
+date: "4/27/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", 
+                      message = FALSE, warning = FALSE, fig.width = 8, fig.height = 3)
+library(tidyverse)
+library(knitr)
+set.seed(1999) # set seed for reproducibility
+```
+
+Collaborators: Ryan, Sam, Bijay
+
+
+
+### Part I: Changing the changepoint
+1.
+```{r, cache=TRUE}
+set.seed(497)
+library(gridExtra)
+library(patchwork)
+#Preliminaries
+n <- 60
+m <- 38
+mu <- 2
+lambda <- 4
+y_mu <- rpois(m, lambda = mu)
+y_lambda <- rpois(n - m, lambda = lambda)
+y <- c(y_mu, y_lambda)
+df <- data.frame(t = 1:n,
+                 y = y,
+                 rate = rep(c("mu", "lambda"), c(m, n - m)))
+#Specifyng Priors
+alpha <- 10
+beta <- 4
+p1 <- ggplot(data.frame(x = c(0, 10)), aes(x)) +
+  stat_function(fun = dgamma, 
+                args = list(shape = alpha, rate = beta)) +
+  labs(x = expression(mu), y = "") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+nu <- 8
+phi <- 2
+p2 <- ggplot(data.frame(x = c(0, 10)), aes(x)) +
+  stat_function(fun = dgamma, 
+                args = list(shape = nu, rate = phi)) +
+  labs(x = expression(lambda), y = "") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+it <- 50000
+post_samples <- matrix(rep(NA, it * 3), ncol = 3)
+colnames(post_samples) <- c("mu", "lambda", "m")
+m_j <- 2 # initialize m
+for (j in 1:it) {
+  # sample mu
+  mu_j      <- rgamma(1, alpha + sum(y[1:m_j]), beta + m_j)
+  # sample lambda
+  lambda_j  <- rgamma(1, nu + sum(y[(m_j+1):n]), phi + (n - m_j))
+  # sample m
+  m_vec <- rep(NA, n - 1)
+  for (k in 1:(n - 1)) {
+    m_vec[k] <-  mu_j^(alpha + sum(y[1:k]) - 1) *
+      exp(-(beta + k) * mu_j) *
+      lambda_j^(nu + sum(y[(k+1):n]) - 1) *
+      exp(-(phi + n - k) * lambda_j)
+  }
+  p <- m_vec/sum(m_vec)
+  m_j <- sample(1:(n - 1), size = 1, prob = p)
+  # store results
+  post_samples[j, "mu"]     <- mu_j
+  post_samples[j, "lambda"] <- lambda_j
+  post_samples[j, "m"]      <- m_j
+}
+#- A scatterplot of $\lambda$ on $\mu$ with color mapped to the value of $m$.
+g1 <- ggplot(as.data.frame(post_samples), 
+             aes(x=lambda, y=mu, color=m))+
+  geom_point()+scale_color_viridis_c()+theme_bw()
+#The same scatterplot but where you only include samples with values of $m$ that are less than 10 or greater than 50.
+g2 <- as.data.frame(post_samples) %>%
+  # mutate(m=as.integer(m)) %>%
+  filter(m<10 | m>50) %>%
+  ggplot(aes(x=lambda, y=mu, color=m))+
+  geom_point()+scale_color_viridis_c()+theme_bw()
+#A hexplot where each hex is filled with the mean value of m.
+g3 <- ggplot(as.data.frame(post_samples),
+             aes(x = lambda, y = mu, z = m)) +
+  stat_summary_hex(fun = function(x) mean(x))+
+  scale_color_viridis_c()+theme_bw()
+g1+g2+g3
+```
+Comments: From the figures we see that for lower m, it is hard to find an accurate mu but lambda is pretty clustered near 3. For higher m, variance in lambda increases and variance in mu decreases. We see that m is related to mu and lambda but mu and lambda aren't related to eachother. This makes sense as mu and lambda are two parameters and m is the point at which the parameters change.
+
+
+2. Altering one of the prior distributions of the Poisson rate parameters so that they are much more flat:
+```{r, cache=TRUE}
+#Specifyng Priors
+alpha <- 10
+beta <- 1.5
+p1 <- ggplot(data.frame(x = c(0, 10)), aes(x)) +
+  stat_function(fun = dgamma, 
+                args = list(shape = alpha, rate = beta)) +
+  labs(x = expression(mu), y = "") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+nu <- 8
+phi <- 2
+p2 <- ggplot(data.frame(x = c(0, 20)), aes(x)) +
+  stat_function(fun = dgamma, 
+                args = list(shape = nu, rate = phi)) +
+  labs(x = expression(lambda), y = "") +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+it <- 50000
+post_samples <- matrix(rep(NA, it * 3), ncol = 3)
+colnames(post_samples) <- c("mu", "lambda", "m")
+m_j <- 2 # initialize m
+for (j in 1:it) {
+  # sample mu
+  mu_j      <- rgamma(1, alpha + sum(y[1:m_j]), beta + m_j)
+  # sample lambda
+  lambda_j  <- rgamma(1, nu + sum(y[(m_j+1):n]), phi + (n - m_j))
+  # sample m
+  m_vec <- rep(NA, n - 1)
+  for (k in 1:(n - 1)) {
+    m_vec[k] <-  mu_j^(alpha + sum(y[1:k]) - 1) *
+      exp(-(beta + k) * mu_j) *
+      lambda_j^(nu + sum(y[(k+1):n]) - 1) *
+      exp(-(phi + n - k) * lambda_j)
+  }
+  p <- m_vec/sum(m_vec)
+  m_j <- sample(1:(n - 1), size = 1, prob = p)
+  # store results
+  post_samples[j, "mu"]     <- mu_j
+  post_samples[j, "lambda"] <- lambda_j
+  post_samples[j, "m"]      <- m_j
+}
+#- A scatterplot of $\lambda$ on $\mu$ with color mapped to the value of $m$.
+g1 <- ggplot(as.data.frame(post_samples), 
+             aes(x=lambda, y=mu, color=m))+
+  geom_point()+scale_color_viridis_c()+theme_bw()
+#The same scatterplot but where you only include samples with values of $m$ 
+#that are less than 10 or greater than 50.
+g2 <- as.data.frame(post_samples) %>%
+  mutate(m=as.integer(m)) %>%
+  filter(m<10 | m>50) %>%
+  ggplot(aes(x=lambda, y=mu, color=m))+
+  geom_point()+scale_color_viridis_c()+theme_bw()
+#A hexplot where each hex is filled with the mean value of m.
+g3 <- ggplot(as.data.frame(post_samples),
+             aes(x = lambda, y = mu, z = m)) +
+  stat_summary_hex(fun = function(x) mean(x))+
+  scale_color_viridis_c()+theme_bw()
+g1+g2+g3
+```
+From our plots, we see that there is no or very little effect on the joint posterior distribution. 
+
+
+### Part II: The Metropolis algorithm
+```{r, cache=TRUE}
+# Set Seed
+set.seed(497)
+# Adapted Metro-Hast
+# Set Parameters
+n <- 60
+m <- 38
+mu <- 2
+lambda <- 4
+alpha <- 10
+beta <- 4
+nu <- 8
+phi <- 2
+y_mu <- rpois(m, lambda = mu)
+y_lambda <- rpois(n - m, lambda = lambda)
+y <- c(y_mu, y_lambda)
+# Write Functions
+posterior <- function(theta){
+  m <- theta[1]
+  mu <- theta[2]
+  lambda <- theta[3]
+  mu^(alpha + sum(y[1:m]) - 1) *
+      exp(-(beta + m) * mu) *
+      lambda^(nu + sum(y[(m+1):n]) - 1) *
+      exp(-(phi + n - m) * lambda)
+}
+
+# Metropolis Algorithm
+it <- 50000
+chain <- matrix(rep(NA, (it + 1) * 3), ncol = 3)
+theta_0 <-c(38,2,4)
+chain[1,] <- theta_0
+colnames(chain) <- c("m", "mu", "lambda")
+for (i in 1:it){
+  m_proposal <- sample((1:n-1), 1, rep(dbinom(chain[i,1], n-1, chain[i,1]/(n-1)),
+                                       replace=FALSE))
+   param_proposal <- rnorm(2, chain[i,2:3], sd=sqrt(chain[i,2:3]*0.01))
+   param_proposal[param_proposal<=0] <- 1e-10
+   proposal <- c(m_proposal, param_proposal)
+   p_move <- min(posterior(proposal)/posterior(chain[i, ]),1)
+  if (runif(1) < p_move) {
+    chain[i + 1, ] <- proposal
+  } else {
+    chain[i + 1, ] <- chain[i, ]
+  }
+}
+chain_df <- as.data.frame(chain)
+```
+
+2. If we lower the variance of one of the proposal distrbution of a parameter, the acceptance increases.
+Right now, it is 29% which is close to our range 30-40%.
+```{r}
+burn_in <- 5000
+acceptance <- 1 - mean(duplicated(chain[-(1:burn_in),]))
+acceptance
+```
+
+3. Autocorrelation:
+```{r}
+df <- chain_df %>%
+  mutate(index = 1:(it+1))
+#m serial dependence
+df_m <- data.frame(theta        = df$m[1:(nrow(df) - 1)],
+                   theta_plus_1 = df$m[2:nrow(df)])
+p_m <- ggplot(df_m, aes(x = theta, y = theta_plus_1)) +
+  geom_point(alpha = .05) +
+  labs(x = expression(m^{i}),
+       y = expression(m^{i+1})) +
+  theme_bw()
+# mu serial dependence
+df_mu <- data.frame(theta        = df$mu[1:(nrow(df) - 1)],
+                    theta_plus_1 = df$mu[2:nrow(df)])
+p_mu <- ggplot(df_mu, aes(x = theta, y = theta_plus_1)) +
+  geom_point(alpha = .05) +
+  labs(x = expression(mu^{i}),
+       y = expression(mu^{i+1})) +
+  theme_bw()
+# lambda serial dependence
+df_lambda <- data.frame(theta        = df$lambda[1:(nrow(df) - 1)],
+                        theta_plus_1 = df$lambda[2:nrow(df)])
+p_lambda <- ggplot(df_lambda, aes(x = theta, y = theta_plus_1)) +
+  geom_point(alpha = .05) +
+  labs(x = expression(lambda^{i}),
+       y = expression(lambda^{i+1})) +
+  theme_bw()
+p_m+p_mu+p_lambda
+round(cor(df_m)[1,2], 3) #-> 0.753
+round(cor(df_mu)[1,2], 3) #-> 0.981
+round(cor(df_lambda)[1,2], 3) #-> 0.977
+```
+For m, we can also do:
+```{r}
+library(ggfortify)
+chain_df %>%
+  select(m) %>%
+  acf()
+```
+We see that there is autocorrelation. 
+Thinning : We can remove the Markov dependence by retaining only every tenth sample.
+```{r}
+chain_thinned <- chain_df %>%
+  mutate(index = 1:(it+1)) %>%
+  slice(seq(from=1, to=it+1, by=10))
+```
+
+The same 3 x 1 plot as you did for the Gibbs sampler:
+```{r, cache=TRUE}
+p1 <- ggplot(chain_thinned, aes(x=lambda,y=mu, color=m))+
+  geom_point()+scale_color_viridis_c()+theme_bw()
+p2 <- chain_thinned %>%
+  filter(m<10 | m >50) %>%
+  ggplot(aes(x=lambda,y=mu,color=m))+geom_point()+
+  scale_color_viridis_c()+theme_bw()
+p3 <- ggplot(data.frame(chain_thinned),
+             aes(x = lambda, y = mu, z = m)) +
+  stat_summary_hex(fun = function(x) mean(x))+
+  scale_color_viridis_c()+theme_bw()
+p1+p2+p3
+```
+We see that the shape of the plot is very similar to the Gibbs sampling. But, the variance of m is lower in Metropolic algorithm than in Gibbs Sampling. Also, we see in the second plot that there are fewer values of m smaller than 10 and greater than 50, which is good. So, we can conclude than the Metropolis Algorithm gives us a more consistent and efficient estimates.
+
+
+### Part III: Rejection Sampling
+Description: It was super hard to come up with a 3-D proposal density, so we decided to take a box around the highest point of the density function and run the rejection sampling to generate our accepted samples. To get M = 1274 we plug in the true parameters (m = 38, lambda = 4, mu = 2) to the joint density function we want to estimate and then grab cutoffs for lambda and mu based on their prior distributions. This lets you trace out a box that bounds the joint density for the rejection sampling. Then we generated a function that samples from that box uniformly, which are our m_prop, mu_prop, lambda_prop are, samples along each axis of the box. We keep the samples that fall beneath the actual joint density. 
+```{r}
+set.seed(497)
+posterior <- function(theta){
+  m <- theta[1]
+  mu <- theta[2]
+  lambda <- theta[3]
+  mu^(alpha + sum(y[1:m]) - 1) *
+      exp(-(beta + m) * mu) *
+      lambda^(nu + sum(y[(m+1):n]) - 1) *
+      exp(-(phi + n - m) * lambda)
+}
+rejection <- function(){
+s <- 1
+M <- 1274
+m_prop <- sample(1:(n-1), s, replace = T)
+mu_prop <- runif(s, 0, 10)
+lambda_prop <- runif(s, 0, 11)
+u <- runif(s, 0, 1)
+theta <- c(m_prop, mu_prop, lambda_prop)
+q_theta <- M
+if(u < posterior(theta)/q_theta){ #accept
+  return(theta)}
+else(return(NA))
+}
+df.reject <- replicate(1e6, rejection()) %>%
+  unlist() %>% na.omit() %>% 
+  matrix(ncol = 3, byrow = T) %>% data.frame()
+colnames(df.reject) <- c("m", "mu", "lambda")
+```
+
+```{r}
+p1 <- ggplot(df.reject, aes(x=lambda,y=mu, color=m))+
+  geom_point()+scale_color_viridis_c()+theme_bw()
+p2 <- df.reject %>%
+  filter(m<10 | m >50) %>%
+  ggplot(aes(x=lambda,y=mu,color=m))+geom_point()+
+  scale_color_viridis_c()+theme_bw()
+p3 <- ggplot(df.reject,aes(x = lambda, y = mu, z = m)) +
+  stat_summary_hex(fun = function(x) mean(x))+
+  scale_color_viridis_c()+theme_bw()
+p1+p2+p3
+```
+We see that the shape of our plots are pretty similar to the gibbs sampling and metropolis algorithm but the acceptance rate is pretty low (~5%). This is probably because of the curse of dimensionality with the rejection sampling. For the higher dimensions problem like this, the ratio of the embedded volume to the "corners" of the embedding volume tends towards zero, thus a lot of rejections take place, thus making the algorithm inefficient and impractical.
+So in high dimensions, it is necessary to use before approach of Metropolis sampling or Gibbs sampling. 
+  The advantage of this method is that it is the simplest algorithm of all thre and is still more efficient compared with the Naive methods in some situations.
+
+

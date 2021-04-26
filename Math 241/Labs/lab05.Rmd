@@ -1,0 +1,339 @@
+---
+title: "Lab 5"
+author: "Shisham Adhikari"
+date: "Math 241, Week 6"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+# Do not modify this chunk.
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+# Put all necessary libraries here
+library(tidyverse)
+library(rnoaa)
+library(rvest)
+library(httr)
+```
+
+### Problem 1: 
+Here are the R objects we will use in this problem (`dats`, `pdxTreesSmall` and `ht`).    
+```{r}
+library(pdxTrees)
+library(mosaicData)
+
+# Creating the objects
+dats <- list(pdxTrees  = head(pdxTrees),
+             Births2015 = head(Births2015),
+             HELPrct = head(HELPrct), 
+             sets = c("pdxTrees", "Births2015", 
+                      "HELPrct"))
+
+pdxTreesSmall  <- head(pdxTrees)
+
+ht <- head(pdxTrees$tree_height, n = 15)
+
+```
+
+###a. 
+The classes of `dats` is "list", `pdxTreesSmall` is "tbl_df" (table/dataframe) and `ht` is "numeric".
+
+###b. 
+The 10th, 11th, and 12th values of `ht`.
+```{r}
+nth(ht, 10)
+nth(ht, 11)
+nth(ht, 12)
+```
+
+
+###c. 
+The `species` column of `pdxTrees` as a data frame with one column:
+```{r}
+species <- pdxTrees[3]
+```
+
+
+###d.
+The `species` column of `pdxTrees` as a character vector:
+```{r}
+species1 <- pdxTrees[[3]]
+#or species1 <-  pdxTrees$species
+```
+
+###e. 
+The code that gives us the second entry in `sets` from `dats`.
+```{r}
+dats[[4]][2]
+```
+
+
+###f.
+```{r}
+Only_Douglas_fir <- pdxTreesSmall %>%
+  filter(common_name == "Douglas-fir") 
+Only_Douglas_fir[4,c(5,6)]
+
+```
+
+
+### Problem 2: Function Creation
+```{r}
+library(pdxTrees)
+confidence_intervals <- function(x, na.rm = FALSE, confidence_level = 0.95){
+  stopifnot(is.numeric(x), is.numeric(confidence_level))
+sample_size <- length(!is.na(x))
+mean <- mean(x, na.rm = na.rm)
+standard_error_of_mean <- sd(x, na.rm = na.rm)/sqrt(sample_size)
+quantile_function <- qt(p = 1-((1-confidence_level)/2) , df = sample_size - 1)
+lower_bound <- mean - quantile_function * standard_error_of_mean
+upper_bound <- mean + quantile_function * standard_error_of_mean
+return(c(lower_bound, upper_bound))
+}
+#Testing it
+print(confidence_intervals(pdxTreesSmall$dbh))
+```
+
+### Problem 3: Wrapper Function for your `ggplot`
+###a.
+```{r}
+# Minimal viable product working code for histogram
+ggplot(data = pdxTrees, mapping = aes(x = dbh)) +
+  geom_histogram()
+
+# Histogram function 
+histo <- function(data, x, bins = NULL, color = "purple" , fill = "lavender"){
+   x <- enquo(x)
+  ggplot(data = data, mapping = aes(x = !!x)) +
+    geom_histogram(bins = bins, color = color, fill = fill)
+}
+
+# Test it
+histo(pdxTrees, dbh, bins = 25)
+```
+
+###b. 
+```{r}
+# Minimal viable product working code for scatterplot
+ggplot(data = pdxTrees, mapping = aes(x = dbh, y = tree_height)) +
+  geom_point()
+
+#Basic scatterplot function
+scatter <- function(data, x, y){
+   x <- enquo(x)
+   y <- enquo(y)
+  ggplot(data = data, mapping = aes(x = !!x, y = !!y)) +
+    geom_point()
+}
+# Test it
+scatter(pdxTrees, dbh, tree_height)
+```
+
+
+###c. 
+```{r}
+scatter <- function(data, x, y, color = NULL, alpha = NULL){
+   x <- enquo(x)
+   y <- enquo(y)
+   color <- enquo(color)
+  ggplot(data = data, mapping = aes(x = !!x, y = !!y, color = !!color)) +
+    geom_point(alpha = alpha)
+}
+# Test it
+scatter(pdxTrees, dbh, tree_height, color = collected_by, alpha = 0.7)
+```
+
+
+
+
+d. A function for smooth curve. 
+```{r}
+smooth <- function(data, x, y, color = NULL, se = FALSE){
+   x <- enquo(x)
+   y <- enquo(y)
+   color <- enquo(color)
+  ggplot(data = data, mapping = aes(x = !!x, y = !!y, color = !!color)) +
+    geom_smooth(se = se)
+}
+# Test it
+smooth(pdxTrees, dbh, tree_height, color = collected_by)
+```
+
+
+### Problem 4: Functioning `dplyr`
+###a. 
+```{r}
+pdxTrees %>%
+  count(native, condition) %>%
+  group_by(native) %>%
+  mutate(prop = n/sum(n)) %>%
+  ungroup()
+
+#Creatinf a function
+cond_prop <- function(data, group_var, prop_var){
+   group_var <- enquo(group_var)
+   prop_var <- enquo(prop_var)
+  data %>%
+    count(!!group_var, !!prop_var) %>%
+    group_by(!!group_var) %>%
+    mutate(prop = n/sum(n)) %>%
+     ungroup()
+}
+#Testing
+cond_prop(pdxTrees, native, condition)
+```
+
+###b. 
+```{r}
+summary_table <- function(data, group_var, sum_var){
+   group_var <- enquo(group_var)
+   sum_var <- enquo(sum_var)
+  data %>%
+    group_by(!!group_var) %>%
+    summarise(mean = mean(!!sum_var), median = median(!!sum_var), min = min(!!sum_var), max = max(!!sum_var), smaple_size = n(), number_of_missing_values = sum(is.na(!!sum_var))) %>%
+     ungroup()
+}
+#Testing
+summary_table(pdxTrees, species, dbh)
+```
+
+
+### Problem 5: 
+###a. An R chunk with the code.
+We need to sketch the p.d.f. of the $\chi^2$ distribution with m degrees of freedom for df = 2,3,4 and draw vertical lines to indicate their means and modes.
+```{r}
+library(tidyverse)
+mean <- 2
+mode <- 0
+q2 <- qchisq(0.5, df=2,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 2)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+   xlab("") + 
+  ylab("") +
+  geom_vline(xintercept = q2, lty = 2) +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2)
+mean <- 3
+mode <- 1
+q3 <- qchisq(0.5, df=3,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 3)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+   xlab("") + 
+   ylab("") +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2) +
+  geom_vline(xintercept = q3, lty = 2) 
+
+mode <- 2
+mean <- 4
+q4 <- qchisq(0.5, df=4,lower.tail = TRUE)
+ggplot(data.frame(x = c(0, 15)), aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 4)) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  ylab("") +
+  xlab("") + 
+  geom_vline(xintercept = q4, lty = 2) +
+   geom_vline(xintercept = mean, lty = 2) +
+   geom_vline(xintercept = mode, lty = 2)
+```
+
+###b. Code smells in the code.
+
+* The same code is copied and pasted multiple times instead of making a function and using it for different conditions. This also made the code longer and less efficient. 
+
+* Variables names are vague and not that clear. Also there are some codes like  ylab("") and xlab("") that aren't even used. 
+
+* Order of the arguments in the code is not consistent.
+
+* The codes are not clear for somebody who doesn't know statistics/R super well, comments could be use to make them clearer. 
+
+###c. Refactoring the code:
+```{r}
+#Create a function
+chi_sq_plot <- function (degrees_of_freedom = NULL, mean = NULL, mode = NULL){
+  quantile_function <- qchisq(0.5, df = degrees_of_freedom, lower.tail = TRUE)
+ ggplot(data.frame(x = c(0, 20)), aes(x = x)) +
+     stat_function(fun = dchisq, args = list(df = degrees_of_freedom))+
+   labs(y = "Density", title = "Chi-square distribution") +
+ geom_vline(xintercept = c(quantile_function, mean, mode), lty = 2) 
+}
+#Apply the function for all three conditions
+chi_sq_plot(degrees_of_freedom = 2, mean = 2, mode = 0)
+chi_sq_plot(degrees_of_freedom = 3, mean = 3, mode = 1)
+chi_sq_plot(degrees_of_freedom = 4, mean = 4, mode = 2)
+```
+
+###d. 
+Changes I made:
+
+* I created a function and used it for different conditions. It made the code much shorter and efficient.
+
+* I assigned the proper/clearer namings to the variables so that the code is now easier to understand.
+
+* The styling is consistent all throughout. 
+
+* I used comments to clarify some of the steps. 
+
+All these made the code more elegant and better as the code is now
+
++ easier to understand
+
++ easier to contribute to
+
+but without changing the observable behavior. These are the goals of refactoring to remove code smells and looks like we succeeded. 
+
+### Problem 6:
+###a. 
+
+* Source 1: World Health Organization (WHO)
+
+-  Link: https://www.who.int/docs/default-source/coronaviruse/situation-reports/20200310-sitrep-50-covid-19.pdf?sfvrsn=55e904fb_2
+
+-  Numbers: Globally 113,702 confirmed, 4012 deaths and in China 80,924 confirmed, 3140 deaths
+
+
+* Source 2:  API wrapper for COVID-19 data from John Hopkins University Center for Systems Science and Engineering (JHU CCSE)
+
+-  Link: https://github.com/RamiKrispin/coronavirus
+
+-  Numbers: Globally 113,583 confirmed, 3,996 deaths and in China 80735 confirmed, 3120 deaths 
+
+
+* Source 3: Worldometer 
+
+-  Link: https://www.worldometers.info/coronavirus/#countries 
+
+-  Numbers: Globally 119,177 confirmed and 4,295 deaths and in China 80,778 confirmed, 3,158 deaths
+
+###b.
+The virus could have spread before an infected person shows any signs, early cases might have been missed or there might be testing delays or no tests at all of the infected cases. The symptoms of the coronavirus is very similar to common cold so people might also intentionally deny feeling sick with the fear of isolation. That is why it is likely that these numbers are undercounts. Also, China or other authority might be underprsenting the number to mitigate the global panic or for some socio-political reasons. 
+
+###c. 
+- They could implement a country-wide mandatory tests so that they can find all the cases that are going hidden/untested and being spreaded to more people. 
+- The President or the authority figures should acknowledge the emergency of the situation and request the people to response carefully to the situation.
+- Involve more epidemiologist in the process to better track the cases. 
+
+###d. 
+* Not to add up to the panic but if undercounting is true, it might cause people to underestimate the seriousness of the epidemic. 
+* It might affect the prevention and cure policies moving forward.
+* It will delay the response and the virus might last even longer. 

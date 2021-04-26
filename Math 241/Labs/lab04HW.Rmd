@@ -1,0 +1,227 @@
+---
+title: "Lab 4"
+author: "Shisham Adhikari"
+date: "03/04/2020, Week 5"
+output:
+  pdf_document
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Problem 1: 
+```{r}
+library(rnoaa)
+library(tidyverse)
+library(lubridate)
+```
+
+a. 
+```{r}
+options(noaakey = "RbURsHCTuCRyawBYWriXXEOIhbAcHSyl")
+```
+
+
+
+b.
+```{r}
+stations <- ncdc_stations(datasetid = "GHCND", 
+                          locationid = "FIPS:41051")
+mult_stations <- stations$data
+```
+There are 25 stations in Multomah county.
+
+
+c. 
+```{r}
+#to determine the datatypeid
+ncdc_datatypes(datasetid = "GHCND",
+               stationid = "GHCND:US1ORMT0006")
+
+# Grabbing the data using ncdc()
+precip_se_pdx <- ncdc(datasetid = "GHCND",
+                      stationid = "GHCND:US1ORMT0006",
+                      datatypeid = "PRCP",
+                      startdate = "2020-01-01",
+                      enddate = "2020-01-31")
+```
+d. The class of `precip_se_pdx` is "ncdc_data", we can also see it listed as "list[2](S3:ncdc_data)" in the precip_se_pdx output.  
+
+```{r}
+precip_se_pdx_data <- precip_se_pdx[["data"]] 
+```
+
+e. 
+```{r}
+precip_se_pdx_data <- precip_se_pdx_data %>% 
+        mutate(Date = ymd_hms(date)) %>% 
+  select(Date, datatype, station, value, fl_m, fl_q, fl_so, fl_t)
+```
+
+f. 
+```{r}
+graph <- ggplot(precip_se_pdx_data, 
+                aes(Date, value))
+graph + geom_line(color = "purple") 
+```
+Yes, it is true that we had only one day, 20th January, where it didn't rain.
+
+## Problem 2: From API to R 
+### API Used: gtrendsR
+```{r}
+library(gtrendsR)
+res <- gtrends("Coronavirus")
+coronavirus_2020 <- res$interest_over_time %>%
+   filter(date >= "2020-01-01")
+ ggplot(coronavirus_2020, 
+        aes(as.Date(date), 
+            as.numeric(hits))) +
+  geom_line(color = "red") +
+  labs(title = "Coronavirus trend in 2020", 
+       x = "Weekwise date for 2020", 
+       y = "Hits") +
+   theme(plot.title = element_text(hjust = 0.5)) +
+   scale_x_date(date_breaks = "1 week", date_labels = "%b\n%Y")
+```
+Comments:I decided to look into the keyword “Coronavirus” worldwide in 2020 using the gtrendR API wrapper.  We can see that the search hits of "Coronavirus" started and have a peak around the end of January 2020 when the coronavirus outbreak in China. The search hits spiked towards the end of Febraury, mainly because of the increasing reporting and death of the virus. Currently, it has about 100 search hits at the peak. This graph indicates that are be at the peak of the trend as of now.
+Note: The original data has weekly observations so I used week-wise observations instead of the day-wise-observations. 
+
+## Problem 3: Scraping Reedie Data
+a.
+```{r}
+library(rvest)
+reed <- read_html("https://www.reed.edu/ir/success.html")
+tbls_ls <- reed %>%
+        html_nodes("table") %>%
+        html_table()
+```
+
+b.
+```{r}
+table1 <- reed %>%
+  html_nodes("table") %>%
+  .[[2]] %>%
+  html_table()
+print(table1)
+```
+This data frame is not tidy because the graduate programs — MBAs, JDs, PhDs, and MDs — are stored in columns instead of rows. In a tidy version, only variables would be in columns and only observations would be in rows. 
+
+
+c. 
+```{r}
+tidytable1 <- pivot_longer(table1, 
+                           cols = c(MBAs, JDs, PhDs, MDs), 
+                                names_to = "Graduate_Program", 
+                                values_to = "Graduate_School") %>%
+arrange(factor(Graduate_Program,
+               levels = c("MBAs", "JDs", "PhDs", "MDs")))
+glimpse(tidytable1)
+```
+
+d. 
+```{r}
+table2 <- reed %>%
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table()
+histogram <- table2 %>% 
+ mutate(X2 = parse_number(X2))%>% 
+  rename(Occupation = X1,
+         Percentage = X2) 
+graph <- histogram %>% 
+  ggplot(aes(x = Occupation,
+             y = Percentage)) +
+  geom_bar(stat = "identity",
+           fill = "Purple") + 
+  geom_text(aes(label = Percentage),
+            hjust = -0.6, 
+            size = 3.5)+
+   coord_flip() 
+print(graph)
+ 
+```
+Conclusions from the graph:We can see from the graph that the most of the Reed alumni work in Business & Industry, which honestly was surprising. It was pretty obvious that the second most common occupation for the Reed alums is Education considering how Reed is known to be the school to prepare one for grad school and a career in education. Knowing the self-driven nature of Reedies, it is not surprising that there are man alumns who are self-employed. It's surprising how few alumns work in the Community Service and Arts & Communication, I wouldn't have guessed that for Reedies. Also, it's surprising how not that many alumni work in law and health care, which I would imagine to be popular career choice for a reed graduate.  
+
+
+e. 
+```{r}
+grad <- read_html("https://www.reed.edu/ir/gradrateshist.html")%>%
+  html_nodes("table") %>%
+html_table(fill = TRUE)
+```
+
+* Renaming the column names.  
+```{r}
+# Hint
+grad1 <- grad[[1]] 
+colnames(grad1) <- c("Entering class year", "Number in cohort", "4", "5", "6")
+```
+
+* Removing any extraneous rows.
+```{r}
+grad1 <- grad1 %>% 
+  filter(row_number() >1)
+#Note: I will be replacing the missing observations by using the parse_number for the columns, so I didn't remove them here. 
+```
+
+* Reshaping the data 
+```{r}
+grad2 <- pivot_longer(grad1, cols = c("4", "5", "6"), 
+                                names_to = "Years to graduation", 
+                                values_to = "Graduation rate") %>%
+  mutate(Entering_class_year = as.integer(`Entering class year`), 
+         Cohort_size = as.integer(`Number in cohort`), 
+         Years_to_graduation = as.integer(`Years to graduation`), 
+         Graduation_rate = parse_number(`Graduation rate`)) %>%
+  select(Entering_class_year, Cohort_size, Years_to_graduation, Graduation_rate)
+```
+
+f. A graph comparing the graduation rates over time
+```{r}
+grad_rate_plot<- grad2 %>% 
+  ggplot(aes(x = Entering_class_year,
+         y = Graduation_rate, 
+        color = as.factor(Years_to_graduation))) +
+  geom_line()
+print(grad_rate_plot)
+```
+Comments:Even though there are dips and rises over the course of time, we can see an overall increment in the graduation rate from 90s to now irrespective of the years (4,5, or 6) to graduate. It isn't surprising that the people who take some extra time and graduate in 5 or 6 years, tend to have higher graduation rates than the traditional 4-years route. Two things that stood out for me in the graph were: first, for most part the graduation rates for all 4, 5, and 6 years to graduate move together, especially the dips in 1990. Second, the noticable decrease in graduation rates for the 4-years graduation in the recent years (marked by the dip at the end of the red line) is pretty surprising. 
+
+
+## Problem 4: Scraping the Wild We(b)st
+Goal: Comparing the Annual GDPs($) of the countries in The South Asian Association for Regional Cooperation (SAARC).
+```{r}
+library(rvest)
+Nepal <- read_html("https://countryeconomy.com/countries/groups/south-asian-association-regional-cooperation")
+SAARC <- Nepal %>%
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table()
+
+colnames(SAARC) <- c("Countries", "Population", "AnnGDP_ineuro", "AnnGDP_indollars", "GDP_ineuro", "GDP_indollars", "HDI", "Debt_ineuro", "Debt_indollars", "GDP_debtineuro", "GDP_debtindollars")
+
+Fintable <- SAARC %>% 
+  mutate(Countries = gsub("\\[|\\]", "",Countries), 
+         AnnGDP_indollars = parse_number(AnnGDP_indollars)) %>% 
+  mutate(Countries = gsub("\\+","",Countries)) %>% 
+  select(Countries, AnnGDP_indollars)  %>% 
+  filter(!Countries == "~TOTAL: SAARC")
+
+Comp <- Fintable  %>% 
+   ggplot(aes(x = "",
+              y = AnnGDP_indollars, 
+              fill = Countries))+
+geom_bar(width = 1, 
+         stat = "identity", 
+         position = "dodge2")+
+  scale_y_log10() +
+  labs(title = "Annual GDP of the Countries in the SAARC ", 
+       x = "", 
+       y = "Annual GDP in Dollars (Log-transformed)") +
+   theme(plot.title = element_text(hjust = 0.5))
+print(Comp)
+```
+Comments: The South Asian Association for Regional Cooperation (SAARC) is the regional intergovernmental organization and geopolitical union of states in South Asia. Its member states are Afghanistan, Bangladesh, Bhutan, India, the Maldives, Nepal, Pakistan and Sri Lanka. On comparing the Annual GDPs in Dollars, it is not surprising to see that India has the highest Annual GDP of all the SAARC countries. It is to note that China is not a country in the SAARC. It is pretty suprising to see how high up there the Annual GDPs of Bangladesh and Pakistan are, also they look almost identical in the chart. It is interesting to know that Nepal is not the country with the lowest Annual GDP, Bhutan and Maldives are below Nepal. 
+

@@ -1,0 +1,257 @@
+---
+title: "Distance, Adjacency, and Weights"
+author: "Jonathan Kadish"
+date: "2/4/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(pacman)
+p_load(ggplot2, dplyr, ggrepel)
+```
+
+
+### Today
+- Distance, Adjacency, Weights
+
+### Tonight
+- Problem Set 1 and peer feedback template, due before class on Tuesday.
+- Problem Set 2 sent out by midnight. 
+
+### Next Week
+- Spatial Autocorrelation (finish GIA Ch.2, read GIA Ch.7)
+
+
+
+# Distance
+
+In small study regions, we can use <i>Euclidean Distance<\i>, which can be calculated using Pythagoras’s formula:
+
+$d_{ij} = \sqrt{(x_i - x_j)^2 + (y_i - y_j)^2}$
+
+Visual proof:
+
+Let's set up some data, using x-y coordinates for each point:
+```{r}
+A <- c(40, 43)
+B <- c(1, 101)
+C <- c(54, 111)
+D <- c(104, 65)
+E <- c(60, 22)
+F <- c(20, 2)
+pts <- rbind(A,B,C,D,E,F)
+pts
+
+```
+
+
+Plot the points and labels:
+```{r, points}
+# plot(pts, xlim=c(0,120), ylim=c(0,120), pch=20, cex=2, col='red', xlab='X', ylab='Y', las=1)
+# text(pts+5, LETTERS[1:6])
+
+pts.df <- as.data.frame(pts)
+names(pts.df) <- c("x", "y")
+
+ggplot(data = pts.df) + 
+  aes(x, y) +
+  geom_point() +
+  geom_label_repel(label = rownames(pts.df))
+```
+
+
+What's the distance between A and B?
+```{r}
+A
+B
+```
+
+
+Let's turn it into a function that will fund the distance between two coordinates:
+```{r}
+# distance function
+euc_distance <- function (c1, c2) {
+  sqrt(mean((c2- c1) ^ 2))
+}
+
+#test it
+euc_distance(A, B)
+
+#works on larger dimensions
+euc_distance(c(3,1,8), c(7,9,2))
+
+```
+
+
+For our purposes, it will be useful to calculated a distance matrix. That is, a matrix that classifies the distance from every point to every other point. 
+
+
+Let $\overrightarrow{c} = {c_1, c_2, ..., c_n}$.
+
+Let $d_{ij}$ be the distance between points $i$ and $j$. Then
+
+\[
+D = \begin{bmatrix} 
+    d_{11} & d_{12}  & \dots & d_{1n}\\
+    d_{21} & d_{22}  & \dots & d_{1n}\\
+    \vdots &  \vdots & \ddots & \\
+    d_{n1} & d_{n2}  &        &da_{nn} 
+    \end{bmatrix}
+\]
+
+
+
+How would we write a function for this?
+```{r}
+
+
+
+
+
+```
+
+
+
+Or, we can use the built in function:
+```{r}
+#?dist
+d <- dist(pts)
+d
+```
+
+Why does it look like this?
+```{r}
+D = as.matrix(d)
+D
+
+```
+
+
+# Spatial influence
+-Much of spatial analysis seeks to answer the question, or control for, how much one point "influences" another. 
+-To model this, we need to think about the relationship between points, and there are some common methods.
+
+
+## Adjacency
+
+### Distance Adjacency Matrix
+
+To make a distance adjacenty matrix, we set a threshold. Say we want to find other points that are within a distance of 50 from each other. 
+
+```{r}
+a <-  D < 50
+a
+```
+
+It can be useful to have this matrix in terms of ones and zeros, with value `NA` along the diagonal. 
+
+```{r}
+diag(a) <- NA
+adj50 <- a * 1
+adj50
+```
+
+
+### Nearest Neighbors Adjacency Matrix
+
+Suppose we want to find the two nearest neighbors adjacency matrix.
+
+```{r}
+cols <- apply(D, 1, order)
+D
+cols
+
+# we need to transpose the result
+cols <- t(cols)
+```
+
+And then get columns 2 and 3 (why not column 1?)
+```{r}
+cols <- cols[, 2:3]
+cols
+```
+
+As we now have the column numbers, we can make the row-column pairs that we want (`rowcols`). 
+
+```{r}
+rowcols <- cbind(rep(1:6, each=2), as.vector(t(cols)))
+rowcols
+```
+
+We use these pairs as indices to change the values in matrix `Ak3`.
+```{r}
+Ak2 <- adj50 * 0
+Ak2[rowcols] <- 1
+Ak2
+```
+
+Is it symmetrical? Why (not)?
+
+What is Ak2 * Ak2?
+```{r}
+Ak2.0 <- Ak2
+diag(Ak2.0) <- 0
+
+Ak2.0 %*% Ak2.0
+```
+
+Seems like someone should have made this into a function...
+```{r}
+p_load(spdep)
+
+# make our points a spacial object
+pts.sp <- SpatialPoints(pts)
+
+Ak2.sp <- knearneigh(pts.sp, k = 2)
+Ak2.sp
+class(Ak2.sp)
+
+Ak2.nb <- knn2nb(Ak2.sp)
+Ak2.nb
+
+
+Ak2.m <- nb2mat(Ak2.nb)
+Ak2.m
+
+
+Ak2.m %*% Ak2.m
+
+```
+
+
+#### Weights matrix
+
+Getting the weights matrix is simple.
+```{r}
+W <- 1 / D
+round(W, 4)
+```
+
+Row-normalization is not that difficult either. First get rid if the `Inf` values by changing them to `NA`. (Where did the `Inf` values come from?)
+
+```{r}
+W[!is.finite(W)] <- NA
+```
+
+Then compute the row sums.
+```{r}
+rtot <- rowSums(W, na.rm=TRUE)
+# this is equivalent to
+# rtot <- apply(W, 1, sum, na.rm=TRUE)
+rtot
+```
+
+Divide the rows by their totals and check if they row sums add up to 1.
+```{r}
+W <- W / rtot
+rowSums(W, na.rm=TRUE)
+```
+
+The values in the columns do not add up to 1.
+```{r}
+colSums(W, na.rm=TRUE)
+```
+

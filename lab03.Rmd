@@ -1,0 +1,268 @@
+---
+title: "Shisham Adhikari Lab 3"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+date: "Math 241, Week 4"
+urlcolor: blue
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+
+crash <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_CRASH.csv")
+
+partic <- read_csv("/home/courses/math241s20/Data/pdx_crash_2018_PARTIC.csv")
+
+polls <- read_csv("/home/courses/math241s20/Data/generic_topline.csv") %>%
+  select(subgroup, modeldate, dem_estimate, rep_estimate)
+```
+
+### Problem 1: Git Control
+Done!
+
+### Problem 2: `dplyr` madness
+
+####a. 
+```{r}
+library(xtable)
+crash_coll <- crash %>% 
+   count(COLLIS_TYP_SHORT_DESC) %>%
+   arrange(desc(n))
+print(crash_coll)
+```
+###Answer:
+We see from the table that the REAR type of collision was most common and OTH type of collision was least common.
+
+
+b.
+```{r}
+weather <-  crash %>%
+  select(COLLIS_TYP_SHORT_DESC,
+         WTHR_COND_SHORT_DESC) %>%
+    group_by(WTHR_COND_SHORT_DESC) %>%
+    count(COLLIS_TYP_SHORT_DESC)  %>%
+    arrange(desc(n)) %>%
+  ungroup()
+weather1 <- weather %>%
+filter(COLLIS_TYP_SHORT_DESC == "REAR"|
+         COLLIS_TYP_SHORT_DESC == "TURN"|
+         COLLIS_TYP_SHORT_DESC == "ANGL") %>%
+  group_by(WTHR_COND_SHORT_DESC)%>%
+  mutate(prop = (n / sum(n)))
+print (weather1)
+```
+
+c. 
+```{r}
+weekday <- crash %>%
+  mutate(Wkday_or_Wkend = if_else( CRASH_WK_DAY_CD == 1|
+              CRASH_WK_DAY_CD == 7, "Weekend", "Weekday")) %>%
+  select(COLLIS_TYP_SHORT_DESC, 
+         Wkday_or_Wkend) %>%
+count(COLLIS_TYP_SHORT_DESC, 
+      Wkday_or_Wkend) %>%
+  group_by(COLLIS_TYP_SHORT_DESC) %>%
+mutate(Comparision = (n / sum(n)))
+print(weekday)
+```
+Analysis: We see that more accidents happen during weekdays in comparision to weekends for each type of collision . 
+
+d. 
+```{r}
+pedes <- crash %>%
+  mutate(ped_involved = if_else( COLLIS_TYP_SHORT_DESC  == "PED", TRUE, FALSE)) %>%
+  group_by(ped_involved) %>%
+  summarise(n = n()) %>%
+  mutate (prop = n/sum(n))
+print(pedes)
+join_df <- left_join(crash, partic, by = c("CRASH_ID" = "CRASH_ID")) 
+driver_with_ped <- join_df %>%
+ mutate(if_ped = if_else(COLLIS_TYP_SHORT_DESC=="PED", TRUE, FALSE)) %>% 
+  select(DRVR_LIC_STAT_CD, if_ped) %>%  
+   count(DRVR_LIC_STAT_CD, if_ped) %>%
+  group_by(DRVR_LIC_STAT_CD) %>%
+  mutate(Proportion = (n / sum(n)))
+print(driver_with_ped)
+```
+###Analysis:
+From table 1, 0.05 proportion of crashes involve pedestrians. Above table shows for each driver license status what proportion of crashes involve pedestrians.Diver License with code 1, which is Valid Oregon license or permit has the highest rate of crashes that involve pedestrians. 
+
+
+e. 
+```{r}
+age_coll <- join_df %>%
+  select(PARTIC_TYP_SHORT_DESC, AGE_VAL, COLLIS_TYP_SHORT_DESC) %>%
+  filter(PARTIC_TYP_SHORT_DESC == "DRVR") %>%
+  mutate(AGE_VAL = as.numeric(AGE_VAL)) %>%
+  filter(AGE_VAL != 0) %>%
+  summarize(Median_Age = median(AGE_VAL, na.rm = TRUE),
+             Average_Age = mean(AGE_VAL, na.rm = TRUE)) %>%
+print(age_coll)
+```
+The average age of drivers(excluding the ones with unknown age) is 40.90184 and median age is 38.The average and median age of drivers by collision type is given by:
+```{r}
+age_colltype <- join_df %>%
+  select(PARTIC_TYP_SHORT_DESC, AGE_VAL, COLLIS_TYP_SHORT_DESC) %>%
+  filter(PARTIC_TYP_SHORT_DESC == "DRVR") %>%
+  mutate(AGE_VAL = as.numeric(AGE_VAL)) %>%
+  filter(AGE_VAL != 0) %>%
+  group_by(COLLIS_TYP_SHORT_DESC)  %>%
+  summarize(Median_Age = median(AGE_VAL, na.rm = TRUE),
+             Mean_Age = mean(AGE_VAL, na.rm = TRUE))
+print(age_colltype) 
+```
+
+A graph of driver ages is calculated below:
+```{r}
+age_coll1 <- join_df %>%
+  select(PARTIC_TYP_SHORT_DESC, AGE_VAL, COLLIS_TYP_SHORT_DESC) %>%
+  filter(PARTIC_TYP_SHORT_DESC == "DRVR") %>%
+  mutate(AGE_VAL = as.numeric(AGE_VAL)) %>%
+filter(AGE_VAL != 0) 
+ qplot(age_coll1$AGE_VAL,
+      geom="histogram",
+      binwidth = 5,  
+     main = "Histogram of driver ages", 
+    xlab = "Age")
+```
+###Analysis:
+We see that 25 seems to be the most common age for drivers. The most drivers are aged in mid-20s to late-30s which makes sense based on our earlier calculation of mean and median. There are very few very old and very yound drivers which also makes sense. 
+
+A graph of driver ages by collision type is given below:
+```{r}
+age_colltype1 <- join_df %>%
+  select(PARTIC_TYP_SHORT_DESC, AGE_VAL, COLLIS_TYP_SHORT_DESC) %>%
+  filter(PARTIC_TYP_SHORT_DESC == "DRVR") %>%
+  mutate(AGE_VAL = as.numeric(AGE_VAL)) %>%
+  filter(AGE_VAL != 0) %>%
+  group_by(COLLIS_TYP_SHORT_DESC) 
+  ggplot(age_colltype1, aes(COLLIS_TYP_SHORT_DESC, AGE_VAL)) + 
+    geom_boxplot(fill="lavender")
+```
+###Analysis:
+For almost all collission types, age values looks rightskewed which intituively makes sense. Looking at our three most common types: REAR, ANGL, and TURN, we see some interesting result. REAR looks like is the only collission type with outliers. ANGL and TURN type of collissions have the highest range in the age values, denoted by the length of whiskers in the box plot. Also, our least common category OTH is the most skewed and with the smallest range of all collission types. The median for almost all the collission types from the boxplot is also soemwhere near 38 which matches our calculation above. 
+
+### Problem 3:
+```{r}
+# CDC data
+CDC <- read_csv("/home/courses/math241s20/Data/CDC2.csv")
+
+# Regional data
+USregions <- read_csv("/home/courses/math241s20/Data/USregions.csv")
+```
+
+
+a. 
+```{r}
+twenty_sixteen <- CDC %>% 
+  filter(YearStart == 2016)
+length(unique(twenty_sixteen$Topic))
+```
+####There are 16 distinct topics that were tracked. 
+
+b.  
+```{r}
+influenza <- CDC %>%
+  filter(YearStart %in% 2010:2016) %>%
+  filter(DataValueType == "Age-adjusted Prevalence", Question == "Influenza vaccination among noninstitutionalized adults aged >= 18 years") %>%
+  filter(LocationDesc == "Oregon" | LocationDesc == "United States")
+print(influenza)
+```
+
+c. 
+```{r}
+influenza1 <- CDC %>%
+  filter(Topic == "Immunization", LocationAbbr == "US"| LocationAbbr == "PA")
+ggplot(influenza1, aes(x=YearStart, y=DataValue, group=LocationDesc)) +
+  geom_smooth(aes(color=LocationDesc))
+```
+Comments: Based on the plot, the immunization rates of Pennsylvania was lower than the US till shortly after mid-2014 or closer to 2015 but after that it is higher than the US. It's surprising how there is a sharp decline in the US immunization rates in between 2015 and 2016.Before 2014, the two rates roughly seems to have moved together. 
+
+
+d.  Let's see how immunization rates vary by region of the country. Join the regional dataset to our CDC dataset so that we have a column signifying the region of the country.  
+
+```{r}
+regional <- left_join(CDC, USregions, by = c("LocationDesc" = "State"))
+```
+
+e. There are NAs in the region column of the new dataset vecause now we have countries (like US, Puerto Rico), islands (like Virgin Islands), and cities like District of Columbia which aren't states and don't have any assigned regions. 
+
+f.
+```{r}
+influenza2 <- regional %>%
+  filter(YearStart == "2016", DataValueType == "Age-adjusted Prevalence", Topic == "Immunization") %>%
+ group_by(LocationDesc)  %>%
+  arrange(desc(DataValue))  %>%
+  select(LocationDesc, Region, YearStart, DataValue, Topic, DataValueType)
+print(influenza2)
+```
+South Dakota has the highest immunization. 
+
+g. Construct a graphic of the 2016 influenza immunization rates by region of the country.  Don't include locations without a region. Comment on your graphic.
+```{r}
+influenza2 <- regional %>%
+  filter(YearStart == "2016", Topic == "Immunization") %>%
+drop_na(Region)
+ ggplot(influenza2, aes(Region, DataValue)) + 
+    geom_boxplot(fill='lavender', color="black")
+```
+Comment on the graph: MidWest, South, and West all have rightskewed immunization rates while NorthEast has left skewed immunization rates but NE also has higher value in general and the range of the data is shorter than the rest. 
+
+
+### Problem 4:
+
+###a. 
+This data is not currently in a tidy format because two variables are stored in a column. It has both party and estimate variables placed in the same column. When column names are not variables but values of a variable, each row represents multiple observations.
+
+```{r}
+polls
+```
+
+###b. 
+```{r}
+polls2 <- polls %>%
+ filter(subgroup == "All polls") %>%
+  rename(Democratic = dem_estimate, Republican = rep_estimate) %>%
+pivot_longer(cols = c(Democratic, Republican),
+             names_to = "Party",
+             values_to = "Estimate") 
+print(polls2)
+```
+
+###c.
+```{r}
+democrats <- polls %>%
+select(subgroup, modeldate, dem_estimate) %>%
+ pivot_wider(names_from = modeldate,values_from = dem_estimate)
+print(democrats)
+```
+###d.
+Someone might want to transform the data like we did in part because if it is just for democrats estimate it would be easier to compare estimates across different subgroups, especially in between a certain time period. 
+
+### Problem 5: YOUR TURN!
+Now it is your turn.  Pick one (or multiple) of the datasets used on this lab.  Ask a question of the data.  Do some data wrangling to produce statistics (use at least two wrangling verbs) and a graphic to answer the question.  Then comment on any conclusions you can draw about your question.
+Dataset Used: Polls
+Question: How do democratic and reoublican estimates vary for each subgroups in the polls data?
+```{r}
+by_subgroup <- polls %>%
+  rename(Democratic = dem_estimate, Republican = rep_estimate) %>%
+pivot_longer(cols = c(Democratic, Republican),                                names_to = "Party", values_to = "Estimate") %>%
+  select(subgroup, Party, Estimate) 
+summary <- by_subgroup %>%
+  group_by(subgroup, Party) %>%
+  summarize(Mean_Estimate = mean(Estimate))
+print(summary)
+ggplot(by_subgroup, aes(x = subgroup, y = Estimate, 
+                    color = Party)) +
+  geom_boxplot()
+```
+Interpretation: From both the summary table and the box plot, we see that all subgroups have higher estimation for Democrats. Among the three subgroups, adults seems to have the most fluctuating estimates with a wider range. All polls and Voters have very similar estimate data for both parties. It was good to know that at least the estimate favors the Democratic Party, phew; I hope their estimates come true. 
